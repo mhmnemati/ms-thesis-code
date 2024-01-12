@@ -4,10 +4,10 @@ This repository contains my master thesis source code, it's about Seizure Detect
 
 ## Installation
 
-Use the package manager [pip](https://pip.pypa.io/en/stable/) to install dependencies.
+Use the package manager [conda](https://docs.conda.io/en/latest/) to install dependencies.
 
 ```bash
-pip install -r requirements.txt
+conda env create
 ```
 
 ## Usage
