@@ -5,11 +5,12 @@ channels:
 dependencies:
     - cudatoolkit=11.8
     - cudnn=8.8
-    # - nccl=2.19
+    - nccl=2.19
     - python=3.11
     - pip=23.3
     - mne=1.6
     - wfdb=4.1
     - numpy=1.26
     - matplotlib=3.8
-    - tensorflow=2.15
+    - pip:
+          - tensorflow-gpu==2.15

@@ -15,4 +15,4 @@ model.compile(
     metrics=['accuracy']
 )
 
-history = model.fit(trainset, epochs=10, batch_size=4, validation_data=validset)
+model.fit(trainset, epochs=10, batch_size=4, validation_data=validset, callbacks=callbacks)

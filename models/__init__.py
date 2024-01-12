@@ -1,2 +1,2 @@
-from biot import BIOT
-from deepsleepnet import DeepSleepNet
+from .biot import BIOT
+from .deepsleepnet import DeepSleepNet
