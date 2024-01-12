@@ -40,7 +40,7 @@ class SleepEDFX(tf.data.Dataset):
                 tf.TensorSpec(shape=(7, 3000), dtype=tf.int32),
                 tf.TensorSpec(shape=(1), dtype=tf.int32)
             )
-        ).batch(2)
+        )
 
     def _generator(split):
         cls = SleepEDFX
