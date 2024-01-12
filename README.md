@@ -7,7 +7,11 @@ This repository contains my master thesis source code, it's about Seizure Detect
 Use the package manager [conda](https://docs.conda.io/en/latest/) to install dependencies.
 
 ```bash
+# first time
 conda env create
+
+# later times
+conda env update
 ```
 
 ## Usage

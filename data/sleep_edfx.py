@@ -9,7 +9,7 @@ warnings.filterwarnings("ignore")
 
 
 class SleepEDFX(tf.data.Dataset):
-    def __new__(cls, root=f"{pathlib.Path(__file__).parent}/downloads", split="train"):
+    def __new__(cls, root=f"{pathlib.Path(__file__).parent}/downloads/sleep_edfx", split="train"):
         labels = [
             "Sleep stage W",
             "Sleep stage 1",

@@ -7,12 +7,14 @@ import pathlib
 
 path = pathlib.Path(__file__).parent
 
-class CHB_MIT:
+
+class CHBMIT:
     def __init__(self):
         pass
 
     def __next__(self):
         pass
+
 
 def main():
     records = glob.glob(f"{path}/downloads/**/*.edf", recursive=True)

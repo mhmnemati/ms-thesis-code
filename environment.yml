@@ -3,15 +3,13 @@ channels:
     - conda-forge
     - defaults
 dependencies:
-    - cudatoolkit=10.1
-    - cudnn=7.6
-    - cupti=10.1
-    - mpi4py=3.0
-    - nccl=2.4
+    - cudatoolkit=11.8
+    - cudnn=8.8
+    # - nccl=2.19
     - python=3.11
     - pip=23.3
     - mne=1.6
     - wfdb=4.1
     - numpy=1.26
     - matplotlib=3.8
-    - tensorflow-gpu=2.15
+    - tensorflow=2.15
