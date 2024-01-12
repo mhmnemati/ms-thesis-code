@@ -12,5 +12,4 @@ dependencies:
     - wfdb=4.1
     - numpy=1.26
     - matplotlib=3.8
-    - pip:
-          - tensorflow-gpu==2.15
+    - tensorflow=2.15
