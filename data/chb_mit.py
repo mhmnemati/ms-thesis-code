@@ -2,17 +2,19 @@ import mne
 import wfdb
 import glob
 import pathlib
-# import numpy as np
-# import tensorflow as tf
+import warnings
+import numpy as np
+
+warnings.filterwarnings("ignore")
 
 path = pathlib.Path(__file__).parent
 
 
 class CHBMIT:
-    def __init__(self):
+    def __init__(self, root=f"{path}/downloads/sleep_edfx"):
         pass
 
-    def __next__(self):
+    def __iter__(self):
         pass
 
 
