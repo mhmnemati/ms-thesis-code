@@ -11,93 +11,32 @@ path = pathlib.Path(__file__).parent
 
 
 class CHBMIT:
-    def __init__(self, root=f"{path}/downloads/sleep_edfx"):
-        pass
+    def __init__(self, root=f"{path}/downloads/chb_mit"):
+        self.label2id = {
+            "Normal": 0,
+            "Seizure": 1
+        }
+
+        self.id2label = {idx: label for label, idx in reversed(self.label2id.items())}
+
+        self.records = sorted(glob.glob(f"{root}/**/*.edf", recursive=True))
+        self.annotations = sorted(glob.glob(f"{root}/**/*.edf.seizures", recursive=True))
 
     def __iter__(self):
-        pass
+        for record in self.records:
+            raw = mne.io.read_raw_edf(record, verbose=False)
 
+            seconds = int(raw.n_times / raw.info["sfreq"])
+            labels = np.zeros(seconds)
 
-def main():
-    records = glob.glob(f"{path}/downloads/**/*.edf", recursive=True)
-    seizures = glob.glob(f"{path}/downloads/**/*.edf.seizures", recursive=True)
+            if f"{record}.seizures" in self.annotations:
+                seizure = wfdb.io.rdann(record, extension="seizures")
+                start = seizure.sample[0] / raw.info["sfreq"]
+                finish = seizure.sample[1] / raw.info["sfreq"]
+                labels[start:finish] = self.label2id["Seizure"]
 
-    for record in records:
-        raw = mne.io.read_raw_edf(record)
-
-        if f"{record}.seizures" in seizures:
-            seizure = wfdb.io.rdann(record, extension="seizures")
-            start = seizure.sample[0] / raw.info["sfreq"]
-            finish = seizure.sample[1] / raw.info["sfreq"]
-            raw.set_annotations(mne.Annotations(onset=start, duration=(finish - start), description="seizure"))
-
-        raw.plot(duration=5, n_channels=30)
-        input()
-
-
-# def preprocess():
-#     pass
-
-# def postprocess():
-#     pass
-
-# def reverse_postprocess():
-#     pass
-
-# # tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased")
-
-# # def batch(iterable, n=1):
-# #     l = len(iterable)
-# #     for ndx in range(0, l, n):
-# #         yield iterable[ndx:min(ndx + n, l)]
-
-
-# raw = mne.io.read_raw_edf("./SC4001E0-PSG.edf")
-
-# seizure = wfdb.io.rdann("./chb03_01.edf", extension="seizures")
-# start = seizure.sample[0] / raw.info["sfreq"]
-# finish = seizure.sample[1] / raw.info["sfreq"]
-# raw.set_annotations(mne.Annotations(onset=start, duration=(finish - start), description="seizure"))
-
-# raw.set_annotations(mne.read_annotations("./SC4001EC-Hypnogram.edf"))
-
-# raw.plot(duration=5, n_channels=30)
-
-# input()
-
-
-# def generator(subset=0, batch_size=20):
-#     yield dict(inputs), (
-#         tf.constant([tags_map("ner_tags", idx, inputs.word_ids(idx - idxs[0]), ner_label2id) for idx in idxs]),
-#         tf.constant([tags_map("pos_tags", idx, inputs.word_ids(idx - idxs[0]), pos_label2id) for idx in idxs])
-#     )
-
-# trainset = tf.data.Dataset.from_generator(generator, args=(0, 64), output_signature=(
-#     {
-#         "input_ids": tf.TensorSpec(shape=(None, 128), dtype=tf.int32),
-#         "token_type_ids": tf.TensorSpec(shape=(None, 128), dtype=tf.int32),
-#         "attention_mask": tf.TensorSpec(shape=(None, 128), dtype=tf.int32)
-#     },
-#     (
-#         tf.TensorSpec(shape=(None, 128), dtype=tf.int32),
-#         tf.TensorSpec(shape=(None, 128), dtype=tf.int32)
-#     )
-# ))
-
-# validset = tf.data.Dataset.from_generator(generator, args=(1, 64), output_signature=(
-#     {
-#         "input_ids": tf.TensorSpec(shape=(None, 128), dtype=tf.int32),
-#         "token_type_ids": tf.TensorSpec(shape=(None, 128), dtype=tf.int32),
-#         "attention_mask": tf.TensorSpec(shape=(None, 128), dtype=tf.int32)
-#     },
-#     (
-#         tf.TensorSpec(shape=(None, 128), dtype=tf.int32),
-#         tf.TensorSpec(shape=(None, 128), dtype=tf.int32)
-#     )
-# ))
-
-# testset = tf.data.Dataset.from_generator(generator, args=(2, 64), output_signature={
-#     "input_ids": tf.TensorSpec(shape=(None, 128), dtype=tf.int32),
-#     "token_type_ids": tf.TensorSpec(shape=(None, 128), dtype=tf.int32),
-#     "attention_mask": tf.TensorSpec(shape=(None, 128), dtype=tf.int32)
-# })
+            yield (
+                raw.get_data().T,
+                labels,
+                int(raw.info["sfreq"])
+            )
