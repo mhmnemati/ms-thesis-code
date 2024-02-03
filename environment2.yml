@@ -13,4 +13,4 @@ dependencies:
           - matplotlib==3.8.2
           - tensorflow==2.15.0
 variables:
-    LD_LIBRARY_PATH: "~/miniconda3/envs/biosignal/lib"
+    LD_LIBRARY_PATH: /home/mhnemati/miniconda3/envs/biosignal/lib
