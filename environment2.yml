@@ -1,16 +1,16 @@
-name: tf11
+name: tf15
 channels:
     - conda-forge
     - defaults
 dependencies:
-    - cudnn=8.1
-    - cudatoolkit=11.2
+    - cudnn=8.9
+    - cudatoolkit=12.2
     - python=3.10
     - pip=23.3
     - pip:
           - mne==1.6.0
           - wfdb==4.1.2
           - matplotlib==3.8.2
-          - tensorflow==2.11.1
+          - tensorflow==2.15.0
 variables:
     LD_LIBRARY_PATH: "~/miniconda3/envs/biosignal/lib"
