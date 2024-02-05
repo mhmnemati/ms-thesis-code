@@ -2,8 +2,8 @@ from data import SleepEDFX
 from models import DeepSleepNet
 from callbacks import callbacks
 
-trainset = SleepEDFX(split="train").batch(4)
-validset = SleepEDFX(split="valid").batch(4)
+trainset = SleepEDFX(split="train", window_secs=30).batch(4)
+validset = SleepEDFX(split="valid", window_secs=30).batch(4)
 
 model = DeepSleepNet()
 model.build()

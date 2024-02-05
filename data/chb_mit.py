@@ -1,6 +1,7 @@
 import mne
 import wfdb
 import glob
+import random
 import pathlib
 import warnings
 import numpy as np
@@ -11,7 +12,7 @@ path = pathlib.Path(__file__).parent
 
 
 class CHBMIT:
-    def __init__(self, root=f"{path}/downloads/chb_mit"):
+    def __init__(self, root=f"{path}/downloads/chb_mit", seed=1, split="train", window_secs=1):
         self.label2id = {
             "Normal": 0,
             "Seizure": 1
@@ -19,8 +20,18 @@ class CHBMIT:
 
         self.id2label = {idx: label for label, idx in reversed(self.label2id.items())}
 
-        self.records = sorted(glob.glob(f"{root}/**/*.edf", recursive=True))
+        records = sorted(glob.glob(f"{root}/**/*.edf", recursive=True))
+        random.Random(seed).shuffle(records)
+
+        split = {
+            "train": (int(len(records) * 0.0), int(len(records) * 0.6)),
+            "valid": (int(len(records) * 0.6), int(len(records) * 0.8)),
+            "test": (int(len(records) * 0.8), int(len(records) * 1.0)),
+        }[split]
+
+        self.records = records[split[0]:split[1]]
         self.annotations = sorted(glob.glob(f"{root}/**/*.edf.seizures", recursive=True))
+        self.window_secs = window_secs
 
     def __iter__(self):
         for record in self.records:
@@ -35,13 +46,11 @@ class CHBMIT:
                 finish = int(seizure.sample[1] / raw.info["sfreq"])
                 labels[start:finish] = self.label2id["Seizure"]
 
-            data = raw.get_data().reshape(len(raw.info["ch_names"]), -1, int(raw.info["sfreq"]))
+            tmin = 0
+            tmax = seconds
+            tmax = tmin + int((tmax - tmin) / self.window_secs) * self.window_secs
 
-            features = {
-                val: data[key] for key, val in enumerate(raw.info["ch_names"])
-            }
+            data = raw.get_data(tmin=tmin, tmax=tmax).T.reshape(-1, self.window_secs * int(raw.info["sfreq"]), raw.info["nchan"])
+            labels = labels[tmin:tmax].reshape(-1, self.window_secs).max(-1)
 
-            yield features, labels
-
-    def montage(self):
-        pass
+            yield data, labels

@@ -1,5 +1,6 @@
 import mne
 import glob
+import random
 import pathlib
 import warnings
 import numpy as np
@@ -10,7 +11,7 @@ path = pathlib.Path(__file__).parent
 
 
 class SleepEDFX:
-    def __init__(self, root=f"{path}/downloads/sleep_edfx", window_secs=1, crop_wake_mins=30):
+    def __init__(self, root=f"{path}/downloads/sleep_edfx", seed=1, split="train", window_secs=1, crop_wake_mins=30):
         self.label2id = {
             "Sleep stage W": 0,
             "Sleep stage 1": 1,
@@ -24,11 +25,19 @@ class SleepEDFX:
 
         self.id2label = {idx: label for label, idx in reversed(self.label2id.items())}
 
-        self.records = list(zip(
+        records = list(zip(
             sorted(glob.glob(f"{root}/**/*-PSG.edf", recursive=True)),
             sorted(glob.glob(f"{root}/**/*-Hypnogram.edf", recursive=True))
         ))
+        random.Random(seed).shuffle(records)
 
+        split = {
+            "train": (int(len(records) * 0.0), int(len(records) * 0.6)),
+            "valid": (int(len(records) * 0.6), int(len(records) * 0.8)),
+            "test": (int(len(records) * 0.8), int(len(records) * 1.0)),
+        }[split]
+
+        self.records = records[split[0]:split[1]]
         self.window_secs = window_secs
         self.crop_wake_mins = crop_wake_mins
 
@@ -54,13 +63,3 @@ class SleepEDFX:
             labels = labels[tmin:tmax].reshape(-1, self.window_secs).max(-1)
 
             yield data, labels
-
-            # data = raw.get_data(tmin=tmin, tmax=tmax)
-            # sfreq =
-
-            # yield
-
-            # data = .T.reshape(-1, self.window_secs * int(raw.info["sfreq"]), raw.info["nchan"])
-            # labels = labels[tmin:tmax].reshape(-1, self.window_secs).max(-1)
-
-            # yield data, labels
