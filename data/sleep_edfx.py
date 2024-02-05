@@ -54,3 +54,13 @@ class SleepEDFX:
             labels = labels[tmin:tmax].reshape(-1, self.window_secs).max(-1)
 
             yield data, labels
+
+            # data = raw.get_data(tmin=tmin, tmax=tmax)
+            # sfreq =
+
+            # yield
+
+            # data = .T.reshape(-1, self.window_secs * int(raw.info["sfreq"]), raw.info["nchan"])
+            # labels = labels[tmin:tmax].reshape(-1, self.window_secs).max(-1)
+
+            # yield data, labels

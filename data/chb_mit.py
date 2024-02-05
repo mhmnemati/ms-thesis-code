@@ -31,12 +31,17 @@ class CHBMIT:
 
             if f"{record}.seizures" in self.annotations:
                 seizure = wfdb.io.rdann(record, extension="seizures")
-                start = seizure.sample[0] / raw.info["sfreq"]
-                finish = seizure.sample[1] / raw.info["sfreq"]
+                start = int(seizure.sample[0] / raw.info["sfreq"])
+                finish = int(seizure.sample[1] / raw.info["sfreq"])
                 labels[start:finish] = self.label2id["Seizure"]
 
-            yield (
-                raw.get_data().T,
-                labels,
-                int(raw.info["sfreq"])
-            )
+            data = raw.get_data().reshape(len(raw.info["ch_names"]), -1, int(raw.info["sfreq"]))
+
+            features = {
+                val: data[key] for key, val in enumerate(raw.info["ch_names"])
+            }
+
+            yield features, labels
+
+    def montage(self):
+        pass

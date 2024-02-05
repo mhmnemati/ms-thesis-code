@@ -109,3 +109,11 @@ class DeepSleepNet(keras.Model):
         x2 = self.lstm(tf.expand_dims(x, axis=-1))
 
         return self.final([x1, x2])
+
+    def build(self):
+        self.build((None, 7, 3000))
+        self.compile(
+            optimizer="adam",
+            loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+            metrics=["accuracy"]
+        )
