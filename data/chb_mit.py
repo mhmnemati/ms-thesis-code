@@ -12,7 +12,7 @@ path = pathlib.Path(__file__).parent
 
 
 class CHBMIT:
-    def __init__(self, root=f"{path}/downloads/chb_mit", seed=1, split="train", window_secs=1):
+    def __init__(self, root=f"{path}/downloads/chb_mit", seed=1, split="train"):
         self.label2id = {
             "Normal": 0,
             "Seizure": 1
@@ -31,7 +31,6 @@ class CHBMIT:
 
         self.records = records[split[0]:split[1]]
         self.annotations = sorted(glob.glob(f"{root}/**/*.edf.seizures", recursive=True))
-        self.window_secs = window_secs
 
     def __iter__(self):
         for record in self.records:
@@ -48,9 +47,10 @@ class CHBMIT:
 
             tmin = 0
             tmax = seconds
-            tmax = tmin + int((tmax - tmin) / self.window_secs) * self.window_secs
 
-            data = raw.get_data(tmin=tmin, tmax=tmax).T.reshape(-1, self.window_secs * int(raw.info["sfreq"]), raw.info["nchan"])
-            labels = labels[tmin:tmax].reshape(-1, self.window_secs).max(-1)
+            data = raw.get_data(tmin=tmin, tmax=tmax)
+            labels = labels[tmin:tmax]
+            channels = raw.info["ch_names"]
+            frequency = int(raw.info["sfreq"])
 
-            yield data, labels
+            yield data, labels, channels, frequency

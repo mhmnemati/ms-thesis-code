@@ -1,0 +1,9 @@
+version: "3.6"
+services:
+    app:
+        build:
+            context: ..
+            dockerfile: .devcontainer/Dockerfile
+        volumes:
+            - ..:/workspaces:cached
+        command: sleep infinity

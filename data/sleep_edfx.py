@@ -11,7 +11,7 @@ path = pathlib.Path(__file__).parent
 
 
 class SleepEDFX:
-    def __init__(self, root=f"{path}/downloads/sleep_edfx", seed=1, split="train", window_secs=1, crop_wake_mins=30):
+    def __init__(self, root=f"{path}/downloads/sleep_edfx", seed=1, split="train", crop_wake_mins=30):
         self.label2id = {
             "Sleep stage W": 0,
             "Sleep stage 1": 1,
@@ -38,7 +38,6 @@ class SleepEDFX:
         }[split]
 
         self.records = records[split[0]:split[1]]
-        self.window_secs = window_secs
         self.crop_wake_mins = crop_wake_mins
 
     def __iter__(self):
@@ -57,9 +56,10 @@ class SleepEDFX:
             non_zeros = np.nonzero(labels)
             tmin = max(int(raw.times[0]), np.min(non_zeros) - self.crop_wake_mins * 60)
             tmax = min(int(raw.times[-1]), np.max(non_zeros) + self.crop_wake_mins * 60)
-            tmax = tmin + int((tmax - tmin) / self.window_secs) * self.window_secs
 
-            data = raw.get_data(tmin=tmin, tmax=tmax).T.reshape(-1, self.window_secs * int(raw.info["sfreq"]), raw.info["nchan"])
-            labels = labels[tmin:tmax].reshape(-1, self.window_secs).max(-1)
+            data = raw.get_data(tmin=tmin, tmax=tmax)
+            labels = labels[tmin:tmax]
+            channels = raw.info["ch_names"]
+            frequency = int(raw.info["sfreq"])
 
-            yield data, labels
+            yield data, labels, channels, frequency

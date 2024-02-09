@@ -1,0 +1,63 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/alpine
+{
+    "name": "ms-thesis-code",
+    // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+    // "image": "mcr.microsoft.com/devcontainers/base:alpine-3.19",
+    "dockerComposeFile": "docker-compose.yml",
+    "workspaceFolder": "/workspaces",
+    "service": "app",
+
+    // Features to add to the dev container. More info: https://containers.dev/features.
+    "features": {},
+
+    // Use 'forwardPorts' to make a list of ports inside the container available locally.
+    "forwardPorts": [],
+
+    // Use 'postCreateCommand' to run commands after the container is created.
+    "onCreateCommand": "echo Link",
+    "postCreateCommand": "echo Run",
+
+    // Configure tool-specific properties.
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.isort",
+                "esbenp.prettier-vscode",
+                "adpyke.vscode-sql-formatter"
+            ],
+            "settings": {
+                "git.autofetch": true,
+                "git.confirmSync": false,
+                "git.enableSmartCommit": true,
+                "extensions.autoUpdate": true,
+                "editor.tabSize": 4,
+                "editor.insertSpaces": true,
+                "editor.formatOnSave": true,
+                "editor.fontLigatures": true,
+                "editor.detectIndentation": false,
+                "editor.defaultFormatter": "esbenp.prettier-vscode",
+                "prettier.tabWidth": 4,
+                "search.exclude": {
+                    "**/node_modules": true,
+                    "**/bower_components": true,
+                    "**/media": true,
+                    "**/static": true
+                },
+                "isort.args": [
+                    "--profile=black",
+                    "--multi-line=3",
+                    "--trailing-comma",
+                    "--force-grid-wrap=0",
+                    "--use-parentheses",
+                    "--line-width=88",
+                    "--thirdparty=django",
+                    "--float-to-top"
+                ]
+            }
+        }
+    },
+    // Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+    "remoteUser": "root"
+}

@@ -117,3 +117,12 @@ class DeepSleepNet(keras.Model):
             loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
             metrics=["accuracy"]
         )
+
+    def preprocess(x):
+        return x
+
+    def postprocess(x):
+        return x
+
+    def postprocess_inv(y):
+        return y
