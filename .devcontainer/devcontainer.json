@@ -2,6 +2,7 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/alpine
 {
     "name": "ms-thesis-code",
+
     // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
     // "image": "mcr.microsoft.com/devcontainers/base:alpine-3.19",
     "dockerComposeFile": "docker-compose.yml",
@@ -23,7 +24,8 @@
         "vscode": {
             "extensions": [
                 "ms-python.python",
-                "ms-python.isort",
+                "ms-python.autopep8",
+                "ms-toolsai.jupyter",
                 "esbenp.prettier-vscode",
                 "adpyke.vscode-sql-formatter"
             ],
@@ -39,25 +41,15 @@
                 "editor.detectIndentation": false,
                 "editor.defaultFormatter": "esbenp.prettier-vscode",
                 "prettier.tabWidth": 4,
-                "search.exclude": {
-                    "**/node_modules": true,
-                    "**/bower_components": true,
-                    "**/media": true,
-                    "**/static": true
-                },
-                "isort.args": [
-                    "--profile=black",
-                    "--multi-line=3",
-                    "--trailing-comma",
-                    "--force-grid-wrap=0",
-                    "--use-parentheses",
-                    "--line-width=88",
-                    "--thirdparty=django",
-                    "--float-to-top"
-                ]
+                "autopep8.args": ["--max-line-length=150"],
+                "[python]": {
+                    "editor.defaultFormatter": "ms-python.autopep8",
+                    "editor.formatOnType": true
+                }
             }
         }
     },
+
     // Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
     "remoteUser": "root"
 }
