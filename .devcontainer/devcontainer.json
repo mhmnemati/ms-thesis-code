@@ -43,8 +43,7 @@
                 "prettier.tabWidth": 4,
                 "autopep8.args": ["--max-line-length=150"],
                 "[python]": {
-                    "editor.defaultFormatter": "ms-python.autopep8",
-                    "editor.formatOnType": true
+                    "editor.defaultFormatter": "ms-python.autopep8"
                 }
             }
         }

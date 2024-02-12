@@ -20,6 +20,13 @@ class CHBMIT:
 
         self.id2label = {idx: label for label, idx in reversed(self.label2id.items())}
 
+        montage = mne.channels.make_standard_montage("standard_1020")
+
+        self.positions = {
+            key.upper(): val for key, val in
+            montage.get_positions()["ch_pos"].items()
+        }
+
         records = sorted(glob.glob(f"{root}/**/*.edf", recursive=True))
         random.Random(seed).shuffle(records)
 
@@ -50,7 +57,13 @@ class CHBMIT:
 
             data = raw.get_data(tmin=tmin, tmax=tmax)
             labels = labels[tmin:tmax]
-            channels = raw.info["ch_names"]
-            frequency = int(raw.info["sfreq"])
 
-            yield data, labels, channels, frequency
+            channels = raw.info["ch_names"]
+            sources = np.zeros((len(channels), 3))
+            targets = np.zeros((len(channels), 3))
+            for idx, channel in enumerate(channels):
+                electrodes = channel.split("-")
+                sources[idx] = self.positions[electrodes[0]]
+                targets[idx] = self.positions[electrodes[1]]
+
+            yield data, labels, sources, targets

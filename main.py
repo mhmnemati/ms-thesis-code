@@ -4,7 +4,6 @@ from callbacks import callbacks
 
 import tensorflow as tf
 
-trainset = 
 validset = SleepEDFX(split="valid", window_secs=30)
 
 # model = DeepSleepNet()

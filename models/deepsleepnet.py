@@ -126,3 +126,37 @@ class DeepSleepNet(keras.Model):
 
     def postprocess_inv(y):
         return y
+
+
+class PreProcessor:
+    def __init__(self):
+        pass
+
+    def __call__(self, x):
+        return x
+
+
+class PostProcessor:
+    def __init__(self):
+        self.label2id = {
+            "Sleep stage W": 0,
+            "Sleep stage 1": 1,
+            "Sleep stage 2": 2,
+            "Sleep stage 3": 3,
+            "Sleep stage 4": 4,
+            "Sleep stage R": 5,
+            "Sleep stage ?": 0,
+            "Movement time": 0
+        }
+
+        self.id2label = {idx: label for label, idx in reversed(self.label2id.items())}
+
+    def __call__(self, x):
+        idx = tf.argmax(x, axis=-1).numpy()
+
+        return self.id2label[idx]
+
+    def backward(self, y):
+        val = self.label2id[y]
+
+        return tf.constant(val)
