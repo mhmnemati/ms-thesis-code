@@ -1,0 +1,17 @@
+{
+    "git.autofetch": true,
+    "git.confirmSync": false,
+    "git.enableSmartCommit": true,
+    "extensions.autoUpdate": true,
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.formatOnSave": true,
+    "editor.fontLigatures": true,
+    "editor.detectIndentation": false,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "prettier.tabWidth": 4,
+    "autopep8.args": ["--max-line-length=150"],
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.autopep8"
+    }
+}
