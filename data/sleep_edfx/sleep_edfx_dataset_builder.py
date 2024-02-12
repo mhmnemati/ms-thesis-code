@@ -1,5 +1,6 @@
 """sleep_edfx dataset."""
 
+import tensorflow as tf
 import tensorflow_datasets as tfds
 
 
@@ -16,7 +17,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
         return self.dataset_info_from_configs(
             features=tfds.features.FeaturesDict({
                 # These are the features of your dataset like images, labels ...
-                'wave': tfds.features.Tensor(dtype=float, shape=(7, 3000)),
+                'wave': tfds.features.Tensor(shape=(7, 3000), dtype=tf.float16),
                 'label': tfds.features.ClassLabel(names=['no', 'yes']),
             }),
             # If there's a common (input, target) tuple from the
