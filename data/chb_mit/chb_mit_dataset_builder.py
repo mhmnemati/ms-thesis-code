@@ -30,6 +30,8 @@ class Builder(tfds.core.GeneratorBasedBuilder):
             features=tfds.features.FeaturesDict({
                 "data": tfds.features.Tensor(shape=(7, self.sfreq * self.window), dtype=tf.float16),
                 "label": tfds.features.ClassLabel(names=self.labels),
+                "sources": tfds.features.Tensor(shape=(None, 3), dtype=tf.float32),
+                "targets": tfds.features.Tensor(shape=(None, 3), dtype=tf.float32),
             }),
         )
 
@@ -40,30 +42,38 @@ class Builder(tfds.core.GeneratorBasedBuilder):
         annotations = glob.glob(f"{path}/**/*.edf.seizures", recursive=True)
         random.shuffle(records)
 
-        return {
-            "train": self._generate_examples(records[slice(int(len(records) * 0.0), int(len(records) * 0.8))], annotations),
-            "test": self._generate_examples(records[slice(int(len(records) * 0.8), int(len(records) * 1.0))], annotations),
+        montage = mne.channels.make_standard_montage("standard_1020")
+        positions = {
+            key.upper(): val for key, val in
+            montage.get_positions()["ch_pos"].items()
         }
 
-    def _generate_examples(self, records, annotations):
+        return {
+            "train": self._generate_examples(records[slice(int(len(records) * 0.0), int(len(records) * 0.8))], annotations, positions),
+            "test": self._generate_examples(records[slice(int(len(records) * 0.8), int(len(records) * 1.0))], annotations, positions),
+        }
+
+    def _generate_examples(self, records, annotations, positions):
         for record in records:
             labels, tmin, tmax = self._get_labels(record, annotations)
+            sources, targets, picks = self._get_montage(record, positions)
 
             raw = mne.io.read_raw_edf(record, infer_types=True)
             # TODO: resample raw to self.sfreq
-
-            picks = mne.pick_types(raw.info, eeg=True)
             data = raw.get_data(picks=picks, tmin=tmin, tmax=tmax)
 
             for low in range(0, len(labels), self.window):
-                key = f'{record[0].split("/")[-1]}_{low}'
+                key = f'{record.split("/")[-1]}_{low}'
+
                 high = low + self.window
                 if high > self.window:
                     break
 
                 yield key, {
                     "data": data[:, low*self.sfreq:high*self.sfreq],
-                    "label": labels[low:high].max(-1)
+                    "label": labels[low:high].max(-1),
+                    "sources": sources,
+                    "targets": targets,
                 }
 
     def _get_labels(self, record, annotations):
@@ -82,3 +92,17 @@ class Builder(tfds.core.GeneratorBasedBuilder):
         tmax = seconds
 
         return labels[tmin:tmax], tmin, tmax
+
+    def _get_montage(self, record, positions):
+        raw = mne.io.read_raw_edf(record, preload=False)
+        picks = mne.pick_types(raw.info, eeg=True)
+
+        sources = np.zeros((len(picks), 3))
+        targets = np.zeros((len(picks), 3))
+        for idx, pick in enumerate(picks):
+            channel = raw.info["ch_names"][pick]
+            electrodes = channel.upper().split("-")
+            sources[idx] = positions[electrodes[0]]
+            targets[idx] = positions[electrodes[1]]
+
+        return sources, targets, picks
