@@ -31,9 +31,9 @@ class Builder(tfds.core.GeneratorBasedBuilder):
     def _info(self):
         return self.dataset_info_from_configs(
             homepage="https://www.physionet.org/content/sleep-edfx/1.0.0/",
-            supervised_keys=("wave", "label"),
+            supervised_keys=("data", "label"),
             features=tfds.features.FeaturesDict({
-                "wave": tfds.features.Tensor(shape=(7, self.sfreq * self.window), dtype=tf.float16),
+                "data": tfds.features.Tensor(shape=(7, self.sfreq * self.window), dtype=tf.float16),
                 "label": tfds.features.ClassLabel(names=self.labels),
             }),
         )
@@ -57,6 +57,8 @@ class Builder(tfds.core.GeneratorBasedBuilder):
             labels, tmin, tmax = self._get_labels(record)
 
             raw = mne.io.read_raw_edf(record[0], infer_types=True, exclude=["Event marker"])
+            # TODO: resample raw to self.sfreq
+
             picks = mne.pick_types(raw.info, eeg=True)
             data = raw.get_data(picks=picks, tmin=tmin, tmax=tmax)
 
@@ -75,7 +77,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
         raw = mne.io.read_raw_edf(record[0], preload=False)
         annots = mne.read_annotations(record[1])
 
-        seconds = int(raw.n_times / raw.info["sfreq"])
+        seconds = int(raw.n_times / self.sfreq)
         labels = np.zeros(seconds)
 
         for item in annots:
