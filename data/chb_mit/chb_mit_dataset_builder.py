@@ -1,5 +1,7 @@
 """chb_mit dataset."""
 
+import pandas as pd
+import tensorflow as tf
 import tensorflow_datasets as tfds
 
 
@@ -16,7 +18,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
         return self.dataset_info_from_configs(
             features=tfds.features.FeaturesDict({
                 # These are the features of your dataset like images, labels ...
-                'wave': tfds.features.Tensor(dtype=float, shape=(7, 3000)),
+                'wave': tfds.features.Tensor(shape=(7, 3000), dtype=tf.float16),
                 'label': tfds.features.ClassLabel(names=['no', 'yes']),
             }),
             # If there's a common (input, target) tuple from the
@@ -29,10 +31,15 @@ class Builder(tfds.core.GeneratorBasedBuilder):
     def _split_generators(self, dl_manager: tfds.download.DownloadManager):
         """Returns SplitGenerators."""
 
-        with open("RECORDS") as f:
-            records = filter(lambda x: bool(x), f.readlines())
-        with open("SEIZURES") as f:
-            seizures = filter(lambda x: bool(x), f.readlines())
+        # pd.DataFrame({
+        #     "raw": recs,
+        #     "annot": map(lambda rec: (f"{rec}.seizure" if rec in seizs else ""), recs)
+        # }).to_csv("./dataset.csv")
+
+        # with open("RECORDS") as f:
+        #     records = filter(lambda x: bool(x), f.readlines())
+        # with open("SEIZURES") as f:
+        #     seizures = filter(lambda x: bool(x), f.readlines())
 
         for record in records:
             path = dl_manager.download(f'https://physionet.org/files/chbmit/1.0.0/{record}?download')
