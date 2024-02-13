@@ -33,8 +33,10 @@ class Builder(tfds.core.GeneratorBasedBuilder):
             homepage="https://www.physionet.org/content/sleep-edfx/1.0.0/",
             supervised_keys=("data", "label"),
             features=tfds.features.FeaturesDict({
-                "data": tfds.features.Tensor(shape=(7, self.sfreq * self.window), dtype=tf.float16),
+                "data": tfds.features.Tensor(shape=(None, self.sfreq * self.window), dtype=tf.float16),
                 "label": tfds.features.ClassLabel(names=self.labels),
+                "sources": tfds.features.Tensor(shape=(None, 3), dtype=tf.float32),
+                "targets": tfds.features.Tensor(shape=(None, 3), dtype=tf.float32),
             }),
         )
 
@@ -60,18 +62,20 @@ class Builder(tfds.core.GeneratorBasedBuilder):
 
     def _generate_examples(self, records, positions):
         for record in records:
-            labels, tmin, tmax = self._get_labels(record)
-            sources, targets, picks = self._get_montage(record, positions)
+            raw = mne.io.read_raw_edf(record[0], infer_types=True, preload=False, exclude=["Event marker", "Marker"])
+            annotations = mne.read_annotations(record[1])
 
-            raw = mne.io.read_raw_edf(record[0], infer_types=True, exclude=["Event marker"])
+            labels, tmin, tmax = self._get_labels(raw, annotations)
+            sources, targets, picks = self._get_montage(raw, positions)
+
             # TODO: resample raw to self.sfreq
-            data = raw.get_data(picks=picks, tmin=tmin, tmax=tmax)
+            data = raw.get_data(picks=picks, tmin=tmin, tmax=tmax).astype(np.float16)
 
             for low in range(0, len(labels), self.window):
                 key = f'{record[0].split("/")[-1]}_{low}'
 
                 high = low + self.window
-                if high > self.window:
+                if high > len(labels):
                     break
 
                 yield key, {
@@ -81,14 +85,11 @@ class Builder(tfds.core.GeneratorBasedBuilder):
                     "targets": targets,
                 }
 
-    def _get_labels(self, record, crop_wake_mins=30):
-        raw = mne.io.read_raw_edf(record[0], preload=False)
-        annots = mne.read_annotations(record[1])
-
+    def _get_labels(self, raw, annotations, crop_wake_mins=30):
         seconds = int(raw.n_times / self.sfreq)
         labels = np.zeros(seconds)
 
-        for item in annots:
+        for item in annotations:
             onset = int(item["onset"])
             duration = int(item["duration"])
             labels[onset:onset+duration] = (
@@ -103,12 +104,11 @@ class Builder(tfds.core.GeneratorBasedBuilder):
 
         return labels[tmin:tmax], tmin, tmax
 
-    def _get_montage(self, record, positions):
-        raw = mne.io.read_raw_edf(record[0], preload=False)
+    def _get_montage(self, raw, positions):
         picks = mne.pick_types(raw.info, eeg=True)
 
-        sources = np.zeros((len(picks), 3))
-        targets = np.zeros((len(picks), 3))
+        sources = np.zeros((len(picks), 3), dtype=np.float32)
+        targets = np.zeros((len(picks), 3), dtype=np.float32)
         for idx, pick in enumerate(picks):
             channel = raw.info["ch_names"][pick]
             electrodes = channel.upper().split("-")

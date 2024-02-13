@@ -28,7 +28,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
             homepage="https://physionet.org/content/chbmit/1.0.0/",
             supervised_keys=("data", "label"),
             features=tfds.features.FeaturesDict({
-                "data": tfds.features.Tensor(shape=(7, self.sfreq * self.window), dtype=tf.float16),
+                "data": tfds.features.Tensor(shape=(None, self.sfreq * self.window), dtype=tf.float16),
                 "label": tfds.features.ClassLabel(names=self.labels),
                 "sources": tfds.features.Tensor(shape=(None, 3), dtype=tf.float32),
                 "targets": tfds.features.Tensor(shape=(None, 3), dtype=tf.float32),
@@ -55,10 +55,11 @@ class Builder(tfds.core.GeneratorBasedBuilder):
 
     def _generate_examples(self, records, annotations, positions):
         for record in records:
-            labels, tmin, tmax = self._get_labels(record, annotations)
-            sources, targets, picks = self._get_montage(record, positions)
+            raw = mne.io.read_raw_edf(record, infer_types=True, preload=False)
 
-            raw = mne.io.read_raw_edf(record, infer_types=True)
+            labels, tmin, tmax = self._get_labels(raw, annotations)
+            sources, targets, picks = self._get_montage(raw, positions)
+
             # TODO: resample raw to self.sfreq
             data = raw.get_data(picks=picks, tmin=tmin, tmax=tmax)
 
@@ -76,9 +77,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
                     "targets": targets,
                 }
 
-    def _get_labels(self, record, annotations):
-        raw = mne.io.read_raw_edf(record, preload=False)
-
+    def _get_labels(self, raw, annotations):
         seconds = int(raw.n_times / self.sfreq)
         labels = np.zeros(seconds)
 
@@ -93,12 +92,11 @@ class Builder(tfds.core.GeneratorBasedBuilder):
 
         return labels[tmin:tmax], tmin, tmax
 
-    def _get_montage(self, record, positions):
-        raw = mne.io.read_raw_edf(record, preload=False)
+    def _get_montage(self, raw, positions):
         picks = mne.pick_types(raw.info, eeg=True)
 
-        sources = np.zeros((len(picks), 3))
-        targets = np.zeros((len(picks), 3))
+        sources = np.zeros((len(picks), 3), dtype=np.float32)
+        targets = np.zeros((len(picks), 3), dtype=np.float32)
         for idx, pick in enumerate(picks):
             channel = raw.info["ch_names"][pick]
             electrodes = channel.upper().split("-")
