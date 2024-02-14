@@ -123,9 +123,6 @@ class Builder(tfds.core.GeneratorBasedBuilder):
             labels, tmin, tmax = self._get_labels(raw, annotations)
             sources, targets, picks = self._get_montage(raw, positions)
 
-            if labels is None:
-                continue
-
             # TODO: resample raw to self.sfreq
             data = raw.get_data(picks=picks, tmin=tmin, tmax=tmax).astype(np.float16)
 
@@ -157,10 +154,6 @@ class Builder(tfds.core.GeneratorBasedBuilder):
             )
 
         non_zeros = np.nonzero(labels)
-
-        if len(non_zeros[0]) <= 0:
-            return None, None, None
-
         tmin = max(int(raw.times[0]), np.min(non_zeros) - crop_wake_mins * 60)
         tmax = min(int(raw.times[-1]), np.max(non_zeros) + crop_wake_mins * 60)
 
