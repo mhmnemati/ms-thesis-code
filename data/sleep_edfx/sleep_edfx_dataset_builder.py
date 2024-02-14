@@ -2,6 +2,7 @@ import mne
 import glob
 import random
 import warnings
+import dataclasses
 import numpy as np
 import tensorflow as tf
 import tensorflow_datasets as tfds
@@ -9,11 +10,63 @@ import tensorflow_datasets as tfds
 warnings.filterwarnings("ignore")
 
 
+sleep_edf_20 = [
+    "SC4001E0-PSG.edf",
+    "SC4002E0-PSG.edf",
+    "SC4011E0-PSG.edf",
+    "SC4012E0-PSG.edf",
+    "SC4021E0-PSG.edf",
+    "SC4022E0-PSG.edf",
+    "SC4031E0-PSG.edf",
+    "SC4032E0-PSG.edf",
+    "SC4041E0-PSG.edf",
+    "SC4042E0-PSG.edf",
+    "SC4051E0-PSG.edf",
+    "SC4052E0-PSG.edf",
+    "SC4061E0-PSG.edf",
+    "SC4062E0-PSG.edf",
+    "SC4071E0-PSG.edf",
+    "SC4072E0-PSG.edf",
+    "SC4081E0-PSG.edf",
+    "SC4082E0-PSG.edf",
+    "SC4091E0-PSG.edf",
+    "SC4092E0-PSG.edf",
+    "SC4101E0-PSG.edf",
+    "SC4102E0-PSG.edf",
+    "SC4111E0-PSG.edf",
+    "SC4112E0-PSG.edf",
+    "SC4121E0-PSG.edf",
+    "SC4122E0-PSG.edf",
+    "SC4131E0-PSG.edf",
+    "SC4141E0-PSG.edf",
+    "SC4142E0-PSG.edf",
+    "SC4151E0-PSG.edf",
+    "SC4152E0-PSG.edf",
+    "SC4161E0-PSG.edf",
+    "SC4162E0-PSG.edf",
+    "SC4171E0-PSG.edf",
+    "SC4172E0-PSG.edf",
+    "SC4181E0-PSG.edf",
+    "SC4182E0-PSG.edf",
+    "SC4191E0-PSG.edf",
+    "SC4192E0-PSG.edf",
+]
+
+
+@dataclasses.dataclass
+class Config(tfds.core.BuilderConfig):
+    pass
+
+
 class Builder(tfds.core.GeneratorBasedBuilder):
     VERSION = tfds.core.Version("1.0.0")
     RELEASE_NOTES = {
         "1.0.0": "Initial release.",
     }
+    BUILDER_CONFIGS = [
+        Config(name="all"),
+        Config(name="20")
+    ]
 
     sfreq = 100
     window = 30
@@ -45,6 +98,10 @@ class Builder(tfds.core.GeneratorBasedBuilder):
             sorted(glob.glob(f"{path}/**/*-PSG.edf", recursive=True)),
             sorted(glob.glob(f"{path}/**/*-Hypnogram.edf", recursive=True))
         ))
+
+        if self.builder_config.name == "20":
+            records = list(filter(lambda x: x[0].split("/")[-1] in sleep_edf_20, records))
+
         random.shuffle(records)
 
         montage = mne.channels.make_standard_montage("standard_1020")
@@ -65,6 +122,9 @@ class Builder(tfds.core.GeneratorBasedBuilder):
 
             labels, tmin, tmax = self._get_labels(raw, annotations)
             sources, targets, picks = self._get_montage(raw, positions)
+
+            if labels is None:
+                continue
 
             # TODO: resample raw to self.sfreq
             data = raw.get_data(picks=picks, tmin=tmin, tmax=tmax).astype(np.float16)
@@ -97,6 +157,10 @@ class Builder(tfds.core.GeneratorBasedBuilder):
             )
 
         non_zeros = np.nonzero(labels)
+
+        if len(non_zeros[0]) <= 0:
+            return None, None, None
+
         tmin = max(int(raw.times[0]), np.min(non_zeros) - crop_wake_mins * 60)
         tmax = min(int(raw.times[-1]), np.max(non_zeros) + crop_wake_mins * 60)
 

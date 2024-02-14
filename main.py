@@ -15,7 +15,7 @@ if tpu:
 else:
     tf.keras.mixed_precision.set_global_policy("mixed_float16")
 
-train_set, test_set = tfds.load("sleep_edfx", split=["train[:5%]", "test[:5%]"], as_supervised=True)
+train_set, test_set = tfds.load("sleep_edfx/20", split=["train", "test"], as_supervised=True)
 
 BATCH = 16
 AUTOTUNE = tf.data.AUTOTUNE
