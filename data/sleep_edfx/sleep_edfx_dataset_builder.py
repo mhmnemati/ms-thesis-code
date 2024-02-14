@@ -23,9 +23,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
         "Sleep stage 2",
         "Sleep stage 3",
         "Sleep stage 4",
-        "Sleep stage R",
-        "Sleep stage ?",
-        "Movement time"
+        "Sleep stage R"
     ]
 
     def _info(self):

@@ -35,7 +35,7 @@ def block_2(conv_filters, conv_kernel_size, conv_padding, conv_strides, pool_pad
 
 
 class DeepSleepNet(keras.Model):
-    def __init__(self):
+    def __init__(self, num_class):
         super().__init__()
 
         self.conv_small = tf.keras.Sequential([
@@ -93,7 +93,7 @@ class DeepSleepNet(keras.Model):
         self.final = keras.Sequential([
             keras.layers.Add(),
             keras.layers.Dropout(0.5),
-            keras.layers.Dense(6),
+            keras.layers.Dense(num_class, activation="softmax"),
         ])
 
     def call(self, x):
@@ -109,54 +109,3 @@ class DeepSleepNet(keras.Model):
         x2 = self.lstm(tf.expand_dims(x, axis=-1))
 
         return self.final([x1, x2])
-
-    def build(self):
-        self.build((None, 7, 3000))
-        self.compile(
-            optimizer="adam",
-            loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-            metrics=["accuracy"]
-        )
-
-    def preprocess(x):
-        return x
-
-    def postprocess(x):
-        return x
-
-    def postprocess_inv(y):
-        return y
-
-
-class PreProcessor:
-    def __init__(self):
-        pass
-
-    def __call__(self, x):
-        return x
-
-
-class PostProcessor:
-    def __init__(self):
-        self.label2id = {
-            "Sleep stage W": 0,
-            "Sleep stage 1": 1,
-            "Sleep stage 2": 2,
-            "Sleep stage 3": 3,
-            "Sleep stage 4": 4,
-            "Sleep stage R": 5,
-            "Sleep stage ?": 0,
-            "Movement time": 0
-        }
-
-        self.id2label = {idx: label for label, idx in reversed(self.label2id.items())}
-
-    def __call__(self, x):
-        idx = tf.argmax(x, axis=-1).numpy()
-
-        return self.id2label[idx]
-
-    def backward(self, y):
-        val = self.label2id[y]
-
-        return tf.constant(val)
