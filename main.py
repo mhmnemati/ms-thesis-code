@@ -5,13 +5,22 @@ import tensorflow_datasets as tfds
 from models import DeepSleepNet
 from callbacks import callbacks
 
-tf.keras.backend.set_floatx("float16")
+try:
+    tpu = tf.distribute.cluster_resolver.TPUClusterResolver()
+except ValueError:
+    tpu = None
+
+if tpu:
+    tf.keras.mixed_precision.set_global_policy("mixed_bfloat16")
+else:
+    tf.keras.mixed_precision.set_global_policy("mixed_float16")
 
 train_set, test_set = tfds.load("sleep_edfx", split=["train[:5%]", "test[:5%]"], as_supervised=True)
 
+BATCH = 16
 AUTOTUNE = tf.data.AUTOTUNE
-train_set = train_set.cache().batch(16).prefetch(AUTOTUNE)
-test_set = test_set.cache().batch(16).prefetch(AUTOTUNE)
+train_set = train_set.cache().batch(BATCH).prefetch(AUTOTUNE)
+test_set = test_set.cache().batch(BATCH).prefetch(AUTOTUNE)
 
 model = DeepSleepNet(num_class=6)
 
@@ -23,8 +32,8 @@ model.compile(
 )
 model.fit(
     train_set, epochs=10,
-    batch_size=16,
+    batch_size=BATCH,
     validation_data=test_set,
-    validation_batch_size=16,
+    validation_batch_size=BATCH,
     callbacks=callbacks,
 )
