@@ -27,6 +27,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
 
     sfreq = 100
     window = 30
+    overlap = 0
     labels = [
         "Normal",
         "Seizure"
@@ -64,34 +65,29 @@ class Builder(tfds.core.GeneratorBasedBuilder):
 
     def _generate_examples(self, records, annotations, positions):
         for record in records:
-            raw = mne.io.read_raw_edf(record, preload=False, include=[
+            raw = mne.io.read_raw_edf(record, infer_types=True, include=[
                 "FP1-F7", "F7-T7", "T7-P7", "P7-O1", "FP1-F3", "F3-C3", "C3-P3", "P3-O1",
                 "FP2-F4", "F4-C4", "C4-P4", "P4-O2", "FP2-F8", "F8-T8", "T8-P8", "P8-O2",
                 "FZ-CZ", "CZ-PZ", "P7-T7", "T7-FT9", "FT9-FT10", "FT10-T8"
             ])
-
             if len(raw.ch_names) <= 0:
                 continue
 
             labels, tmin, tmax = self._get_labels(raw, annotations)
             sources, targets, picks = self._get_montage(raw, positions)
 
-            if labels is None:
-                continue
-
             # TODO: resample raw to self.sfreq
-            data = raw.get_data(picks=picks, tmin=tmin, tmax=tmax).astype(np.float16)
+            data = raw.get_data(tmin=tmin, tmax=tmax, picks=picks).astype(np.float16)
 
-            for low in range(0, len(labels), self.window):
-                key = f'{record.split("/")[-1]}_{low}'
-
+            for low in range(0, len(labels), self.window - self.overlap):
                 high = low + self.window
-                if high > self.window:
+                if high > len(labels):
                     break
 
+                key = f'{record.split("/")[-1]}_{low}'
                 yield key, {
                     "data": data[:, low*self.sfreq:high*self.sfreq],
-                    "label": labels[low:high].max(-1),
+                    "label": labels[low:high].max(),
                     "sources": sources,
                     "targets": targets,
                 }
@@ -108,8 +104,8 @@ class Builder(tfds.core.GeneratorBasedBuilder):
 
         non_zeros = np.nonzero(labels)
 
-        if len(non_zeros[0]) <= 0:
-            return None, None, None
+        if len(non_zeros) <= 0:
+            return labels[0:0], 0, 0
 
         tmin = max(int(raw.times[0]), np.min(non_zeros) - crop_wake_mins * 60)
         tmax = min(int(raw.times[-1]), np.max(non_zeros) + crop_wake_mins * 60)
@@ -119,15 +115,11 @@ class Builder(tfds.core.GeneratorBasedBuilder):
     def _get_montage(self, raw, positions):
         picks = mne.pick_types(raw.info, eeg=True)
 
-        print(raw.ch_names)
-
         sources = np.zeros((len(picks), 3), dtype=np.float32)
         targets = np.zeros((len(picks), 3), dtype=np.float32)
         for idx, pick in enumerate(picks):
             channel = raw.info["ch_names"][pick]
             electrodes = channel.upper().split("-")
-            print(raw.filenames[0])
-            print(channel)
             sources[idx] = positions[electrodes[0]]
             targets[idx] = positions[electrodes[1]]
 

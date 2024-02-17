@@ -70,6 +70,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
 
     sfreq = 100
     window = 30
+    overlap = 0
     labels = [
         "Sleep stage W",
         "Sleep stage 1",
@@ -117,25 +118,24 @@ class Builder(tfds.core.GeneratorBasedBuilder):
 
     def _generate_examples(self, records, positions):
         for record in records:
-            raw = mne.io.read_raw_edf(record[0], infer_types=True, preload=False, exclude=["Event marker", "Marker"])
+            raw = mne.io.read_raw_edf(record[0], infer_types=True, exclude=["Event marker", "Marker"])
             annotations = mne.read_annotations(record[1])
 
             labels, tmin, tmax = self._get_labels(raw, annotations)
             sources, targets, picks = self._get_montage(raw, positions)
 
             # TODO: resample raw to self.sfreq
-            data = raw.get_data(picks=picks, tmin=tmin, tmax=tmax).astype(np.float16)
+            data = raw.get_data(tmin=tmin, tmax=tmax, picks=picks).astype(np.float16)
 
-            for low in range(0, len(labels), self.window):
-                key = f'{record[0].split("/")[-1]}_{low}'
-
+            for low in range(0, len(labels), self.window - self.overlap):
                 high = low + self.window
                 if high > len(labels):
                     break
 
+                key = f'{record[0].split("/")[-1]}_{low}'
                 yield key, {
                     "data": data[:, low*self.sfreq:high*self.sfreq],
-                    "label": labels[low:high].max(-1),
+                    "label": labels[low:high].max(),
                     "sources": sources,
                     "targets": targets,
                 }
