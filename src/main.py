@@ -4,15 +4,15 @@ import tensorflow_datasets as tfds
 from models import DeepSleepNet
 from callbacks import callbacks
 
-try:
-    tpu = tf.distribute.cluster_resolver.TPUClusterResolver()
-except ValueError:
-    tpu = None
+# try:
+#     tpu = tf.distribute.cluster_resolver.TPUClusterResolver()
+# except ValueError:
+#     tpu = None
 
-if tpu:
-    tf.keras.mixed_precision.set_global_policy("mixed_bfloat16")
-else:
-    tf.keras.mixed_precision.set_global_policy("mixed_float16")
+# if tpu:
+#     tf.keras.mixed_precision.set_global_policy("mixed_bfloat16")
+# else:
+#     tf.keras.mixed_precision.set_global_policy("mixed_float16")
 
 train_set, test_set = tfds.load("sleep_edfx/20", split=["train", "test"], as_supervised=True)
 
