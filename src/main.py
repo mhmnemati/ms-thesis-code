@@ -4,11 +4,11 @@ import tensorflow_datasets as tfds
 from models import DeepSleepNet
 from callbacks import callbacks
 
-tf.keras.mixed_precision.set_global_policy("mixed_float16")
+# tf.keras.mixed_precision.set_global_policy("mixed_float16")
 
 train_set, test_set = tfds.load("sleep_edfx/20", split=["train", "test"], as_supervised=True)
 
-BATCH = 16
+BATCH = 8
 AUTOTUNE = tf.data.AUTOTUNE
 train_set = train_set.cache().batch(BATCH).prefetch(AUTOTUNE)
 test_set = test_set.cache().batch(BATCH).prefetch(AUTOTUNE)
