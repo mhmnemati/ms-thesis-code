@@ -1,5 +1,6 @@
 mne==1.6.0
 wfdb==4.1.2
 matplotlib==3.8.2
+tensorflow==2.14.0
 tensorflow-datasets==4.9.4
 ipykernel==6.29.2

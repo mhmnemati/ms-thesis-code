@@ -9,7 +9,6 @@ dependencies:
     - cuda-nvcc
     - pip
     - pip:
-          - tensorflow==2.14.0
           - nvidia-cudnn-cu11==8.7.0.84
 variables:
     LD_LIBRARY_PATH: "'$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/'"
