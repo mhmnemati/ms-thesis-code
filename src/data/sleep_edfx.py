@@ -62,10 +62,11 @@ class SleepEDFXDataset(ZIPDataset):
         "Sleep stage R"
     ]
 
-    def __init__(self, root="./data/chb-mit", split="train"):
+    def __init__(self, root="~/pytorch_datasets/sleep_edfx", train=True, transform=None):
         super().__init__(
             root=root,
-            split=split,
+            split="train" if train else "test",
+            transform=transform,
             generators=self._split_generators,
             url="https://www.physionet.org/static/published-projects/sleep-edfx/sleep-edf-database-expanded-1.0.0.zip"
         )

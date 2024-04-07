@@ -16,10 +16,11 @@ class CHBMITDataset(ZIPDataset):
         "Seizure"
     ]
 
-    def __init__(self, root="./data/chb-mit", split="train"):
+    def __init__(self, root="~/pytorch_datasets/chb_mit", train=True, transform=None):
         super().__init__(
             root=root,
-            split=split,
+            split="train" if train else "test",
+            transform=transform,
             generators=self._split_generators,
             url="https://physionet.org/static/published-projects/chbmit/chb-mit-scalp-eeg-database-1.0.0.zip"
         )

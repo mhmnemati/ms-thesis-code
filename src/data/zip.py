@@ -8,8 +8,9 @@ from torch.utils.data import Dataset
 
 
 class ZIPDataset(Dataset):
-    def __init__(self, root, split, generators, url):
+    def __init__(self, root, split, transform, generators, url):
         super().__init__()
+        self.transform = transform
         os.makedirs(root, exist_ok=True)
 
         # Download
@@ -37,4 +38,9 @@ class ZIPDataset(Dataset):
         return len(self.items)
 
     def __getitem__(self, index):
-        return load(self.items[index])
+        item = load(self.items[index])
+
+        if self.transform:
+            item = self.transform(item)
+
+        return item
