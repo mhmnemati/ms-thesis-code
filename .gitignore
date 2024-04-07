@@ -161,6 +161,5 @@ cython_debug/
 
 # DeepLearning
 backup/
-data/
 ckpt/
 logs/
