@@ -1,3 +1,4 @@
+import os
 import mne
 import wfdb
 import glob
@@ -16,7 +17,7 @@ class CHBMITDataset(ZIPDataset):
         "Seizure"
     ]
 
-    def __init__(self, root="~/pytorch_datasets/chb_mit", train=True, transform=None):
+    def __init__(self, root=f"{os.path.expanduser('~')}/pytorch_datasets/chb_mit", train=True, transform=None):
         super().__init__(
             root=root,
             split="train" if train else "test",

@@ -1,3 +1,4 @@
+import os
 import mne
 import glob
 import random
@@ -62,7 +63,7 @@ class SleepEDFXDataset(ZIPDataset):
         "Sleep stage R"
     ]
 
-    def __init__(self, root="~/pytorch_datasets/sleep_edfx", train=True, transform=None):
+    def __init__(self, root=f"{os.path.expanduser('~')}/pytorch_datasets/sleep_edfx", train=True, transform=None):
         super().__init__(
             root=root,
             split="train" if train else "test",
