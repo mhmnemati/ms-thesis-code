@@ -9,7 +9,7 @@
     "editor.detectIndentation": false,
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "prettier.tabWidth": 4,
-    "autopep8.args": ["--max-line-length=150"],
+    "autopep8.args": ["--max-line-length=200"],
     "[python]": {
         "editor.defaultFormatter": "ms-python.autopep8"
     }

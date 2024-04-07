@@ -1,11 +1,9 @@
 mne==1.6.0
 wfdb==4.1.2
 matplotlib==3.8.2
-tensorflow==2.14.0
-tensorflow-datasets==4.9.4
 ipykernel==6.29.2
 
--i https://download.pytorch.org/whl/cpu
+--extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.2.2
 # torchtext==2.2.2
 # torchaudio==2.2.2
