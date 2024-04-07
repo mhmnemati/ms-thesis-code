@@ -1,7 +1,8 @@
 mne==1.6.0
 wfdb==4.1.2
-matplotlib==3.8.2
 ipykernel==6.29.2
+matplotlib==3.8.2
+braindecode==0.8.1
 
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.2.2

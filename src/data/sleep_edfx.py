@@ -100,7 +100,7 @@ class SleepEDFXDataset(ZIPDataset):
             sources, targets, picks = self._get_montage(raw, positions)
 
             # TODO: resample raw to self.sfreq
-            data = raw.get_data(tmin=tmin, tmax=tmax, picks=picks).astype(np.float16)
+            data = raw.get_data(tmin=tmin, tmax=tmax, picks=picks).astype(np.float32)
 
             for low in range(0, len(labels), self.window - self.overlap):
                 high = low + self.window
@@ -116,7 +116,7 @@ class SleepEDFXDataset(ZIPDataset):
 
     def _get_labels(self, raw, annotations, crop_wake_mins=30):
         seconds = int(raw.n_times / self.sfreq)
-        labels = np.zeros(seconds)
+        labels = np.zeros(seconds, dtype=np.int64)
 
         for item in annotations:
             onset = int(item["onset"])

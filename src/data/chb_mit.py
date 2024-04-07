@@ -56,7 +56,7 @@ class CHBMITDataset(ZIPDataset):
             sources, targets, picks = self._get_montage(raw, positions)
 
             # TODO: resample raw to self.sfreq
-            data = raw.get_data(tmin=tmin, tmax=tmax, picks=picks).astype(np.float16)
+            data = raw.get_data(tmin=tmin, tmax=tmax, picks=picks).astype(np.float32)
 
             for low in range(0, len(labels), self.window - self.overlap):
                 high = low + self.window
@@ -72,7 +72,7 @@ class CHBMITDataset(ZIPDataset):
 
     def _get_labels(self, raw, annotations):
         seconds = int(raw.n_times / self.sfreq)
-        labels = np.zeros(seconds)
+        labels = np.zeros(seconds, dtype=np.int64)
 
         if f"{raw.filenames[0]}.seizures" in annotations:
             seizure = wfdb.io.rdann(raw.filenames[0], extension="seizures")
