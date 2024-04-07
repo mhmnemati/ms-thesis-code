@@ -5,7 +5,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from data import CHBMITDataset
-from braindecode.models import Deep4Net
+from braindecode.models import Deep4Net, EEGInception
 
 
 def transform(item):
@@ -20,7 +20,7 @@ train_loader = DataLoader(train_set, batch_size=BATCH)
 test_set = CHBMITDataset(train=False, transform=transform)
 test_loader = DataLoader(test_set, batch_size=BATCH)
 
-model = Deep4Net(n_outputs=2, n_chans=23, n_times=3000)
+model = EEGInception(n_outputs=2, n_chans=23, n_times=3000)
 
 loss_fn = nn.CrossEntropyLoss()
 optimizer = pt.optim.SGD(model.parameters(), lr=1e-3)
