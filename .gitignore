@@ -160,5 +160,4 @@ cython_debug/
 #.idea/
 
 # DeepLearning
-backup/
-log/
+lightning_logs/

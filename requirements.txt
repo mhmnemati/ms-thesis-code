@@ -1,5 +1,6 @@
 mne==1.6.0
 wfdb==4.1.2
+lightning==2.2.1
 ipykernel==6.29.2
 matplotlib==3.8.2
 braindecode==0.8.1
@@ -7,7 +8,6 @@ tensorboard==2.16.2
 
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.2.2
-torcheval==0.0.7
 # torchtext==2.2.2
 # torchaudio==2.2.2
 # torchvision==2.2.2
