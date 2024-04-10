@@ -27,6 +27,7 @@
                 "ms-python.python",
                 "ms-python.autopep8",
                 "ms-toolsai.jupyter",
+                "ms-toolsai.tensorboard",
                 "esbenp.prettier-vscode",
                 "adpyke.vscode-sql-formatter"
             ]
