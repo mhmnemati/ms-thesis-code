@@ -32,3 +32,7 @@ class EEGInception(L.LightningModule):
         loss = F.cross_entropy(pred, y)
         self.log("validation_loss", loss)
         self.log("validation_accuracy", self.validation_accuracy(pred, y))
+
+
+def preprocess(item):
+    return (item["data"], item["label"])
