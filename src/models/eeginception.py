@@ -2,13 +2,13 @@ import torch as T
 import lightning as L
 import torchmetrics as M
 import torch.nn.functional as F
-from braindecode.models import EEGInception
+from braindecode.models import EEGInception as Model
 
 
-class LitEEGInception(L.LightningModule):
+class EEGInception(L.LightningModule):
     def __init__(self):
         super().__init__()
-        self.model = EEGInception(n_outputs=2, n_chans=23, n_times=3000)
+        self.model = Model(n_outputs=2, n_chans=23, n_times=3000)
         self.training_accuracy = M.Accuracy(task="multiclass", num_classes=2)
         self.validation_accuracy = M.Accuracy(task="multiclass", num_classes=2)
 
