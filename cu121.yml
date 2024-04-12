@@ -1,0 +1,15 @@
+name: cu121
+channels:
+    - nvidia/label/cuda-12.1.0
+    - conda-forge
+    - defaults
+dependencies:
+    - python=3.10
+    - cudatoolkit=12.1
+    - cuda-nvcc
+    - pip
+    - pip:
+          - nvidia-cudnn-cu11==9.0.0.84
+variables:
+    LD_LIBRARY_PATH: "'$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/'"
+    XLA_FLAGS: "'--xla_gpu_cuda_data_dir=$CONDA_PREFIX/'"
