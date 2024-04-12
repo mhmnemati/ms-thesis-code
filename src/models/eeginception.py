@@ -3,6 +3,10 @@ from torch.utils.data import DataLoader
 from braindecode.models import EEGInception as Model
 
 
+def transform(item):
+    return (item["data"], item["label"])
+
+
 class EEGInception(BaseModel):
     def __init__(self):
         super().__init__(
@@ -11,9 +15,6 @@ class EEGInception(BaseModel):
         )
 
     @staticmethod
-    def loader(dataset):
+    def loader(Dataset, **kwargs):
+        dataset = Dataset(**kwargs, transform=transform)
         return DataLoader(dataset, batch_size=8, num_workers=4)
-
-    @staticmethod
-    def transform(item):
-        return (item["data"], item["label"])
