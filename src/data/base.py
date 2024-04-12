@@ -7,7 +7,7 @@ from torch.hub import download_url_to_file
 from torch.utils.data import Dataset
 
 
-class ZipDataset(Dataset):
+class BaseDataset(Dataset):
     def __init__(self, root, split, transform, generators, url):
         super().__init__()
         self.transform = transform

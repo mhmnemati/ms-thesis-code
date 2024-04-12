@@ -4,7 +4,7 @@ import glob
 import random
 import numpy as np
 
-from .zip import ZipDataset
+from .base import BaseDataset
 
 
 sleep_edf_20 = [
@@ -50,7 +50,7 @@ sleep_edf_20 = [
 ]
 
 
-class SleepEDFXDataset(ZipDataset):
+class SleepEDFXDataset(BaseDataset):
     sfreq = 100
     window = 30
     overlap = 0

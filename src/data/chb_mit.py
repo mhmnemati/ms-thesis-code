@@ -5,10 +5,10 @@ import glob
 import random
 import numpy as np
 
-from .zip import ZipDataset
+from .base import BaseDataset
 
 
-class CHBMITDataset(ZipDataset):
+class CHBMITDataset(BaseDataset):
     sfreq = 100
     window = 30
     overlap = 0
