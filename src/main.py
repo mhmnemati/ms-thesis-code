@@ -26,10 +26,10 @@ Dataset = data_classes[args.data]
 Model, DataLoader = model_classes[args.model]
 
 train_dataset = Dataset(train=True, transform=Model.transform)
-train_loader = DataLoader(train_dataset, batch_size=args.batch, num_workers=int(args.batch/2))
+train_loader = DataLoader(train_dataset, batch_size=args.batches, num_workers=int(args.batches/2))
 
 test_dataset = Dataset(train=False, transform=Model.transform)
-test_loader = DataLoader(test_dataset, batch_size=args.batch, num_workers=int(args.batch/2))
+test_loader = DataLoader(test_dataset, batch_size=args.batches, num_workers=int(args.batches/2))
 
 trainer = L.Trainer(max_epochs=args.epochs)
 trainer.fit(Model(), train_loader, test_loader)
