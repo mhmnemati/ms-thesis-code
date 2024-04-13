@@ -1,10 +1,5 @@
 from .base import BaseModel
-from torch.utils.data import DataLoader
 from braindecode.models import DeepSleepNet as Model
-
-
-def transform(item):
-    return (item["data"], item["label"])
 
 
 class DeepSleepNet(BaseModel):
@@ -15,6 +10,5 @@ class DeepSleepNet(BaseModel):
         )
 
     @staticmethod
-    def loader(Dataset, **kwargs):
-        dataset = Dataset(**kwargs, transform=transform)
-        return DataLoader(dataset, batch_size=8, num_workers=4)
+    def transform(item):
+        return (item["data"], item["label"])
