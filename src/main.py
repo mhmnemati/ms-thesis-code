@@ -15,8 +15,8 @@ model_classes = {
 }
 
 parser = argparse.ArgumentParser(description="Train model on data.")
-parser.add_argument("-d", "--data", type=str, default=data_classes.keys()[0], choices=data_classes.keys())
-parser.add_argument("-m", "--model", type=str, default=model_classes.keys()[0], choices=model_classes.keys())
+parser.add_argument("-d", "--data", type=str, default=list(data_classes.keys())[0], choices=list(data_classes.keys()))
+parser.add_argument("-m", "--model", type=str, default=list(model_classes.keys())[0], choices=list(model_classes.keys()))
 parser.add_argument("-e", "--epochs", type=int, default=10)
 parser.add_argument("-b", "--batches", type=int, default=8)
 
