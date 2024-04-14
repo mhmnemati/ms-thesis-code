@@ -1,3 +1,4 @@
+import torch
 import argparse
 import lightning as L
 from torch.utils.data import DataLoader as TensorDataLoader
@@ -5,6 +6,8 @@ from torch_geometric.loader import DataLoader as GraphDataLoader
 
 from data import CHBMITDataset
 from models import Brain2Vec, EEGInception
+
+torch.multiprocessing.set_sharing_strategy("file_system")
 
 data_classes = {
     "chb_mit": CHBMITDataset,
