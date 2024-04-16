@@ -17,7 +17,7 @@ class CHBMITDataset(BaseDataset):
         "Seizure"
     ]
 
-    def __init__(self, root=f"{os.path.expanduser('~')}/pytorch_datasets/chb_mit", train=True, transform=None):
+    def __init__(self, root=os.path.expanduser("~/pytorch_datasets/chb_mit"), train=True, transform=None):
         super().__init__(
             root=root,
             split="train" if train else "test",

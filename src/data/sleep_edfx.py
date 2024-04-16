@@ -63,7 +63,7 @@ class SleepEDFXDataset(BaseDataset):
         "Sleep stage R"
     ]
 
-    def __init__(self, root=f"{os.path.expanduser('~')}/pytorch_datasets/sleep_edfx", train=True, transform=None):
+    def __init__(self, root=os.path.expanduser("~/pytorch_datasets/sleep_edfx"), train=True, transform=None):
         super().__init__(
             root=root,
             split="train" if train else "test",
