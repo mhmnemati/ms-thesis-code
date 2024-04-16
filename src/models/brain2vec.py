@@ -14,9 +14,9 @@ from .base import BaseModel
 class Model(T.Module):
     def __init__(self):
         super().__init__()
-        self.conv1 = G.GCNConv(in_channels=3000, out_channels=2000)
-        self.conv2 = G.GCNConv(in_channels=2000, out_channels=1000)
-        self.linear = T.Linear(in_features=1000, out_features=2)
+        self.conv1 = G.GCNConv(in_channels=100, out_channels=200)
+        self.conv2 = G.GCNConv(in_channels=200, out_channels=100)
+        self.linear = T.Linear(in_features=100, out_features=2)
 
     def forward(self, x, edge_index, batch):
         x = self.conv1(x, edge_index)

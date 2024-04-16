@@ -10,7 +10,7 @@ from .base import BaseDataset
 
 class CHBMITDataset(BaseDataset):
     sfreq = 100
-    window = 30
+    window = 1
     overlap = 0
     labels = [
         "Normal",
@@ -81,8 +81,9 @@ class CHBMITDataset(BaseDataset):
             finish = int(seizure.sample[1] / raw.info["sfreq"])
             labels[start:finish] = 1
 
-        tmin = int(raw.times[0])
-        tmax = int(raw.times[-1])
+        non_zeros = np.nonzero(labels)
+        tmin = max(int(raw.times[0]), np.min(non_zeros) - 10 * 60)
+        tmax = min(int(raw.times[-1]), np.max(non_zeros) + 10 * 60)
 
         return labels[tmin:tmax], tmin, tmax
 
