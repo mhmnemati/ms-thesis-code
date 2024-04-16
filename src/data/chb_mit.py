@@ -29,6 +29,7 @@ class CHBMITDataset(BaseDataset):
     def _split_generators(self, path):
         records = sorted(glob.glob(f"{path}/**/*.edf", recursive=True))
         annotations = glob.glob(f"{path}/**/*.edf.seizures", recursive=True)
+        records = list(filter(lambda x: f"{x}.seizures" in annotations, records))
         random.shuffle(records)
 
         montage = mne.channels.make_standard_montage("standard_1020")
