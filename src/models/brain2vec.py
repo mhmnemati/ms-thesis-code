@@ -12,11 +12,11 @@ from .base import BaseModel
 
 
 class Model(T.Module):
-    def __init__(self):
+    def __init__(self, n_times, n_outputs):
         super().__init__()
-        self.conv1 = G.GCNConv(in_channels=100, out_channels=200)
-        self.conv2 = G.GCNConv(in_channels=200, out_channels=100)
-        self.linear = T.Linear(in_features=100, out_features=2)
+        self.conv1 = G.GCNConv(in_channels=n_times, out_channels=int(n_times/2))
+        self.conv2 = G.GCNConv(in_channels=int(n_times/2), out_channels=int(n_times/4))
+        self.linear = T.Linear(in_features=int(n_times/4), out_features=n_outputs)
 
     def forward(self, x, edge_index, batch):
         x = self.conv1(x, edge_index)
@@ -31,7 +31,7 @@ class Model(T.Module):
 class Brain2Vec(BaseModel):
     def __init__(self):
         super().__init__(
-            get_model=lambda: Model(),
+            get_model=lambda: Model(n_times=3000, n_outputs=2),
             num_classes=2
         )
 
