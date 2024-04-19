@@ -32,7 +32,7 @@ class Brain2Vec(BaseModel):
     def __init__(self):
         super().__init__(
             get_model=lambda: Model(n_times=100, n_outputs=2),
-            get_loss=F.cross_entropy,
+            get_loss=lambda: F.cross_entropy,
             num_classes=2
         )
 
