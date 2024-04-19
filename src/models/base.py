@@ -10,7 +10,15 @@ class BaseModel(L.LightningModule):
     def __init__(self, get_model, num_classes):
         super().__init__()
         self.model = get_model()
+
+        self.training_f1 = M.F1Score(task="multiclass", num_classes=num_classes)
+        self.training_recall = M.Recall(task="multiclass", num_classes=num_classes)
+        self.training_precision = M.Precision(task="multiclass", num_classes=num_classes)
         self.training_accuracy = M.Accuracy(task="multiclass", num_classes=num_classes)
+
+        self.validation_f1 = M.F1Score(task="multiclass", num_classes=num_classes)
+        self.validation_recall = M.Recall(task="multiclass", num_classes=num_classes)
+        self.validation_precision = M.Precision(task="multiclass", num_classes=num_classes)
         self.validation_accuracy = M.Accuracy(task="multiclass", num_classes=num_classes)
 
     def forward(self, *args):
@@ -33,6 +41,9 @@ class BaseModel(L.LightningModule):
         pred = self.model(*args)
         loss = F.cross_entropy(pred, y)
         self.log("training_loss", loss, batch_size=batch_size)
+        self.log("training_f1", self.training_f1(pred, y), batch_size=batch_size)
+        self.log("training_recall", self.training_recall(pred, y), batch_size=batch_size)
+        self.log("training_precision", self.training_precision(pred, y), batch_size=batch_size)
         self.log("training_accuracy", self.training_accuracy(pred, y), batch_size=batch_size)
         return loss
 
@@ -50,4 +61,7 @@ class BaseModel(L.LightningModule):
         pred = self.model(*args)
         loss = F.cross_entropy(pred, y)
         self.log("validation_loss", loss, batch_size=batch_size)
+        self.log("validation_f1", self.validation_f1(pred, y), batch_size=batch_size)
+        self.log("validation_recall", self.validation_recall(pred, y), batch_size=batch_size)
+        self.log("validation_precision", self.validation_precision(pred, y), batch_size=batch_size)
         self.log("validation_accuracy", self.validation_accuracy(pred, y), batch_size=batch_size)
