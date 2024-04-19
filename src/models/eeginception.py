@@ -1,11 +1,13 @@
 from .base import BaseModel
-from braindecode.models import EEGInception as Model
+import torch.nn.functional as F
+import braindecode.models as M
 
 
 class EEGInception(BaseModel):
     def __init__(self):
         super().__init__(
-            get_model=lambda: Model(n_times=3000, n_chans=23, n_outputs=2),
+            get_model=lambda: M.EEGInception(n_times=3000, n_chans=23, n_outputs=2),
+            get_loss=lambda: F.cross_entropy,
             num_classes=2
         )
 
