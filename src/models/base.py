@@ -44,7 +44,7 @@ class BaseModel(L.LightningModule):
         loss = F.cross_entropy(pred, y)
 
         self.log("training_loss", loss, batch_size=batch_size)
-        for key, val in self.training_metrics:
+        for key, val in self.training_metrics.items():
             self.log(f"training_{key}", val(pred, y), batch_size=batch_size)
 
         return loss
@@ -64,5 +64,5 @@ class BaseModel(L.LightningModule):
         loss = F.cross_entropy(pred, y)
 
         self.log("validation_loss", loss, batch_size=batch_size)
-        for key, val in self.validation_metrics:
+        for key, val in self.validation_metrics.items():
             self.log(f"validation_{key}", val(pred, y), batch_size=batch_size)
