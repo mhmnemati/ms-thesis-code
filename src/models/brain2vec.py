@@ -31,7 +31,7 @@ class Model(T.Module):
 class Brain2Vec(BaseModel):
     def __init__(self):
         super().__init__(
-            get_model=lambda: Model(n_times=3000, n_outputs=2),
+            get_model=lambda: Model(n_times=100, n_outputs=2),
             num_classes=2
         )
 

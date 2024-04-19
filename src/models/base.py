@@ -10,18 +10,18 @@ class BaseModel(L.LightningModule):
     def __init__(self, get_model, num_classes):
         super().__init__()
         self.model = get_model()
-        self.training_metrics = {
+
+        metrics = M.MetricCollection({
             "f1": M.F1Score(task="multiclass", num_classes=num_classes),
+            "aucroc": M.AUROC(task="multiclass", num_classes=num_classes),
             "recall": M.Recall(task="multiclass", num_classes=num_classes),
+            "accuracy": M.Accuracy(task="multiclass", num_classes=num_classes),
             "precision": M.Precision(task="multiclass", num_classes=num_classes),
-            "accuracy": M.Accuracy(task="multiclass", num_classes=num_classes)
-        }
-        self.validation_metrics = {
-            "f1": M.F1Score(task="multiclass", num_classes=num_classes),
-            "recall": M.Recall(task="multiclass", num_classes=num_classes),
-            "precision": M.Precision(task="multiclass", num_classes=num_classes),
-            "accuracy": M.Accuracy(task="multiclass", num_classes=num_classes)
-        }
+        })
+
+        self.training_metrics = metrics.clone(prefix="training_")
+        self.validation_metrics = metrics.clone(prefix="validation_")
+        self.validation_matrix = M.ConfusionMatrix(task="multiclass", num_classes=num_classes)
 
     def forward(self, *args):
         return self.model(*args)
@@ -29,7 +29,7 @@ class BaseModel(L.LightningModule):
     def configure_optimizers(self):
         return T.optim.SGD(self.parameters(), lr=1e-3)
 
-    def training_step(self, batch, idx):
+    def general_step(self, batch):
         batch_size, args, y = 0, 0, 0
         if isinstance(batch, Batch):
             batch_size = batch.num_graphs
@@ -43,26 +43,25 @@ class BaseModel(L.LightningModule):
         pred = self.model(*args)
         loss = F.cross_entropy(pred, y)
 
-        self.log("training_loss", loss, batch_size=batch_size)
-        for key, val in self.training_metrics.items():
-            self.log(f"training_{key}", val(pred, y), batch_size=batch_size)
+        return (batch_size, loss, pred, y)
+
+    def training_step(self, batch, idx):
+        batch_size, loss, pred, y = self.general_step(batch)
+
+        self.log("training_loss", loss, batch_size=batch_size, prog_bar=True)
+        self.log_dict(self.training_metrics(pred, y), batch_size=batch_size, on_step=False, on_epoch=True)
 
         return loss
 
     def validation_step(self, batch, idx):
-        batch_size, args, y = 0, 0, 0
-        if isinstance(batch, Batch):
-            batch_size = batch.num_graphs
-            args = (batch.x, batch.edge_index, batch.batch)
-            y = batch.y
-        else:
-            batch_size = len(batch[1])
-            args = (batch[0],)
-            y = batch[1]
-
-        pred = self.model(*args)
-        loss = F.cross_entropy(pred, y)
+        batch_size, loss, pred, y = self.general_step(batch)
 
         self.log("validation_loss", loss, batch_size=batch_size)
-        for key, val in self.validation_metrics.items():
-            self.log(f"validation_{key}", val(pred, y), batch_size=batch_size)
+        self.log_dict(self.validation_metrics(pred, y), batch_size=batch_size)
+
+        self.validation_matrix.update(pred, y)
+
+    def on_validation_epoch_end(self):
+        fig, _ = self.validation_matrix.plot()
+        self.logger.experiment.add_figure("validation_matrix", fig, self.current_epoch)
+        self.validation_matrix.reset()
