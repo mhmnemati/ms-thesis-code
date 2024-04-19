@@ -14,8 +14,8 @@ from .base import BaseModel
 class Model(T.Module):
     def __init__(self, n_times, n_outputs):
         super().__init__()
-        self.conv1 = G.GCNConv(in_channels=n_times, out_channels=int(n_times/2))
-        self.conv2 = G.GCNConv(in_channels=int(n_times/2), out_channels=int(n_times/4))
+        self.conv1 = G.GATConv(in_channels=n_times, out_channels=int(n_times/2))
+        self.conv2 = G.GATConv(in_channels=int(n_times/2), out_channels=int(n_times/4))
         self.linear = T.Linear(in_features=int(n_times/4), out_features=n_outputs)
 
     def forward(self, x, edge_index, batch):
@@ -32,6 +32,7 @@ class Brain2Vec(BaseModel):
     def __init__(self):
         super().__init__(
             get_model=lambda: Model(n_times=100, n_outputs=2),
+            get_loss=F.cross_entropy,
             num_classes=2
         )
 

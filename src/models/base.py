@@ -7,9 +7,10 @@ from torch_geometric.data.batch import Batch
 
 
 class BaseModel(L.LightningModule):
-    def __init__(self, get_model, num_classes):
+    def __init__(self, get_model, get_loss, num_classes):
         super().__init__()
         self.model = get_model()
+        self.loss = get_loss()
 
         metrics = M.MetricCollection({
             "f1": M.F1Score(task="multiclass", num_classes=num_classes),
@@ -27,7 +28,7 @@ class BaseModel(L.LightningModule):
         return self.model(*args)
 
     def configure_optimizers(self):
-        return T.optim.SGD(self.parameters(), lr=1e-3)
+        return T.optim.Adam(self.parameters(), lr=1e-3)
 
     def general_step(self, batch):
         batch_size, args, y = 0, 0, 0
@@ -41,7 +42,7 @@ class BaseModel(L.LightningModule):
             y = batch[1]
 
         pred = self.model(*args)
-        loss = F.cross_entropy(pred, y)
+        loss = self.loss(pred, y)
 
         return (batch_size, loss, pred, y)
 
