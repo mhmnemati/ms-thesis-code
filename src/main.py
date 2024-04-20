@@ -24,6 +24,10 @@ parser.add_argument("-m", "--model", type=str, default=list(model_classes.keys()
 parser.add_argument("-e", "--epochs", type=int, default=10)
 parser.add_argument("-b", "--batches", type=int, default=8)
 
+temp_args, _ = parser.parse_known_args()
+Model, _ = model_classes[temp_args.model]
+parser = Model.add_args(parser)
+
 args = parser.parse_args()
 
 Dataset = data_classes[args.data]
@@ -36,4 +40,4 @@ test_dataset = Dataset(train=False, transform=Model.transform)
 test_loader = DataLoader(test_dataset, batch_size=args.batches, num_workers=int(args.batches/2))
 
 trainer = L.Trainer(max_epochs=args.epochs, logger=TensorBoardLogger(save_dir="logs/", name=args.model, default_hp_metric=False))
-trainer.fit(Model(), train_loader, test_loader)
+trainer.fit(Model(**vars(args)), train_loader, test_loader)

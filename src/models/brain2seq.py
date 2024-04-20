@@ -12,35 +12,25 @@ from .base import BaseModel
 
 
 class Model(T.Module):
-    def __init__(self, n_times, n_outputs, layer_type, aggregator):
+    def __init__(self, n_times, n_outputs, layer_type):
         super().__init__()
-        Conv = G.GCNConv
-        if layer_type == "gcn":
+        Conv = G.GATConv
+        if layer_type == "GCN":
             Conv = G.GCNConv
-        elif layer_type == "gcn2":
+        elif layer_type == "GCN2":
             Conv = G.GCN2Conv
-        elif layer_type == "gat":
+        elif layer_type == "GAT":
             Conv = G.GATConv
-        elif layer_type == "gat2":
+        elif layer_type == "GAT2":
             Conv = G.GATv2Conv
-        elif layer_type == "cheb":
+        elif layer_type == "Cheb":
             Conv = G.ChebConv
-
-        Agg = G.MinAggregation
-        if aggregator == "min":
-            Agg = G.MinAggregation
-        elif aggregator == "max":
-            Agg = G.MaxAggregation
-        elif aggregator == "mean":
-            Agg = G.MeanAggregation
-        elif aggregator == "median":
-            Agg = G.MedianAggregation
 
         self.model = G.Sequential("x, edge_index, batch", [
             (Conv(in_channels=n_times, out_channels=int(n_times/2)), "x, edge_index -> x"),
             (T.ReLU(), "x -> x"),
             (Conv(in_channels=int(n_times/2), out_channels=int(n_times/4)), "x, edge_index -> x"),
-            (Agg(), "x, batch -> x"),
+            (G.MeanAggregation(), "x, batch -> x"),
             (T.Dropout(p=0.5), "x -> x"),
             (T.Linear(in_features=int(n_times/4), out_features=n_outputs), "x -> x")
         ])
@@ -49,24 +39,14 @@ class Model(T.Module):
         return self.model(x, edge_index, batch)
 
 
-class Brain2Vec(BaseModel):
-    def __init__(self, **kwargs):
-        hparams = {k: v for k, v in kwargs.items() if k in ["n_times", "n_outputs", "layer_type", "aggregator"]}
+class Brain2Seq(BaseModel):
+    def __init__(self, n_times=100, n_outputs=2, layer_type="GCN"):
         super().__init__(
             num_classes=2,
-            hparams=hparams,
-            model=Model(**hparams),
+            hparams={k: v for k, v in locals().items() if k not in ["self", "__class__"]},
+            model=Model(n_times=n_times, n_outputs=n_outputs, layer_type=layer_type),
             loss=F.cross_entropy,
         )
-
-    @staticmethod
-    def add_args(parent_parser):
-        parser = parent_parser.add_argument_group("Brain2Vec")
-        parser.add_argument("--n_times", type=int, default=100)
-        parser.add_argument("--n_outputs", type=int, default=2)
-        parser.add_argument("--layer_type", type=str, default="gcn", choices=["gcn", "gcn2", "gat", "gat2", "cheb"])
-        parser.add_argument("--aggregator", type=str, default="min", choices=["min", "max", "mean", "median"])
-        return parent_parser
 
     @staticmethod
     def transform(item):
