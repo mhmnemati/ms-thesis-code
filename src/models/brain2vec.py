@@ -29,11 +29,12 @@ class Model(T.Module):
 
 
 class Brain2Vec(BaseModel):
-    def __init__(self):
+    def __init__(self, n_times=100, n_outputs=2):
         super().__init__(
-            get_model=lambda: Model(n_times=100, n_outputs=2),
-            get_loss=lambda: F.cross_entropy,
-            num_classes=2
+            num_classes=2,
+            hparams={k: v for k, v in locals().items() if k not in ["self", "__class__"]},
+            model=Model(n_times=n_times, n_outputs=n_outputs),
+            loss=F.cross_entropy,
         )
 
     @staticmethod
@@ -46,6 +47,7 @@ class Brain2Vec(BaseModel):
 
         node_features = np.zeros((electrodes.shape[0], data.shape[1]), dtype=np.float32)
         for i in range(len(data)):
+            # TODO: use other transformations (wavelet, fourier, hilbert, ...)
             power = data[i] ** 2
 
             source_idx = np.argwhere((electrodes == sources[i]).all(1)).item()
@@ -57,6 +59,7 @@ class Brain2Vec(BaseModel):
         adjecancy_matrix = np.zeros((electrodes.shape[0], electrodes.shape[0]), dtype=np.float64)
         for i in range(electrodes.shape[0]):
             for j in range(electrodes.shape[0]):
+                # TODO: construct graph edges methods (constant, clustering, dynamic, ...)
                 distance = np.linalg.norm(electrodes[j] - electrodes[i])
                 adjecancy_matrix[i, j] = 1 if distance < 0.1 else 0
 

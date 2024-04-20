@@ -7,10 +7,11 @@ from torch_geometric.data.batch import Batch
 
 
 class BaseModel(L.LightningModule):
-    def __init__(self, get_model, get_loss, num_classes):
+    def __init__(self, num_classes, hparams, model, loss):
         super().__init__()
-        self.model = get_model()
-        self.loss = get_loss()
+        self.save_hyperparameters(hparams)
+        self.model = model
+        self.loss = loss
 
         metrics = M.MetricCollection({
             "f1": M.F1Score(task="multiclass", num_classes=num_classes),
@@ -20,8 +21,8 @@ class BaseModel(L.LightningModule):
             "precision": M.Precision(task="multiclass", num_classes=num_classes),
         })
 
-        self.training_metrics = metrics.clone(prefix="training_")
-        self.validation_metrics = metrics.clone(prefix="validation_")
+        self.training_metrics = metrics.clone(prefix="training/")
+        self.validation_metrics = metrics.clone(prefix="validation/")
         self.validation_matrix = M.ConfusionMatrix(task="multiclass", num_classes=num_classes)
 
     def forward(self, *args):
@@ -29,6 +30,10 @@ class BaseModel(L.LightningModule):
 
     def configure_optimizers(self):
         return T.optim.Adam(self.parameters(), lr=1e-3)
+
+    def on_train_start(self):
+        pass
+        # self.logger.log_hyperparams(self.hparams, self.training_metrics.compute())
 
     def general_step(self, batch):
         batch_size, args, y = 0, 0, 0

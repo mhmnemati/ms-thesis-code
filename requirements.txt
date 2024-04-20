@@ -6,6 +6,7 @@ matplotlib==3.8.2
 braindecode==0.8.1
 tensorboard==2.16.2
 torch_geometric==2.5.2
+protobuf==4.25.3
 
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.2.2
