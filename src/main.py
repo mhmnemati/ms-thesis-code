@@ -35,5 +35,5 @@ train_loader = DataLoader(train_dataset, batch_size=args.batches, num_workers=in
 test_dataset = Dataset(train=False, transform=Model.transform)
 test_loader = DataLoader(test_dataset, batch_size=args.batches, num_workers=int(args.batches/2))
 
-trainer = L.Trainer(max_epochs=args.epochs, logger=TensorBoardLogger(save_dir=".", default_hp_metric=False))
+trainer = L.Trainer(max_epochs=args.epochs, logger=TensorBoardLogger(save_dir="logs/", name=args.model, default_hp_metric=False))
 trainer.fit(Model(), train_loader, test_loader)

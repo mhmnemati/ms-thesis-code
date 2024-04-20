@@ -32,8 +32,11 @@ class BaseModel(L.LightningModule):
         return T.optim.Adam(self.parameters(), lr=1e-3)
 
     def on_train_start(self):
-        pass
-        # self.logger.log_hyperparams(self.hparams, self.training_metrics.compute())
+        self.logger.log_hyperparams(self.hparams, {
+            "training/f1": 0,
+            "training/aucroc": 0,
+            "training/accuracy": 0,
+        })
 
     def general_step(self, batch):
         batch_size, args, y = 0, 0, 0
@@ -54,7 +57,7 @@ class BaseModel(L.LightningModule):
     def training_step(self, batch, idx):
         batch_size, loss, pred, y = self.general_step(batch)
 
-        self.log("training_loss", loss, batch_size=batch_size, prog_bar=True)
+        self.log("training/loss", loss, batch_size=batch_size, prog_bar=True)
         self.log_dict(self.training_metrics(pred, y), batch_size=batch_size, on_step=False, on_epoch=True)
 
         return loss
@@ -62,7 +65,7 @@ class BaseModel(L.LightningModule):
     def validation_step(self, batch, idx):
         batch_size, loss, pred, y = self.general_step(batch)
 
-        self.log("validation_loss", loss, batch_size=batch_size)
+        self.log("validation/loss", loss, batch_size=batch_size)
         self.log_dict(self.validation_metrics(pred, y), batch_size=batch_size)
 
         self.validation_matrix.update(pred, y)
