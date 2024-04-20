@@ -12,28 +12,39 @@ from .base import BaseModel
 
 
 class Model(T.Module):
-    def __init__(self, n_times, n_outputs):
+    def __init__(self, n_times, n_outputs, layer_type):
         super().__init__()
-        self.conv1 = G.GATConv(in_channels=n_times, out_channels=int(n_times/2))
-        self.conv2 = G.GATConv(in_channels=int(n_times/2), out_channels=int(n_times/4))
-        self.linear = T.Linear(in_features=int(n_times/4), out_features=n_outputs)
+        Conv = G.GATConv
+        if layer_type == "GCN":
+            Conv = G.GCNConv
+        elif layer_type == "GCN2":
+            Conv = G.GCN2Conv
+        elif layer_type == "GAT":
+            Conv = G.GATConv
+        elif layer_type == "GAT2":
+            Conv = G.GATv2Conv
+        elif layer_type == "Cheb":
+            Conv = G.ChebConv
+
+        self.model = G.Sequential("x, edge_index, batch", [
+            (Conv(in_channels=n_times, out_channels=int(n_times/2)), "x, edge_index -> x"),
+            (T.ReLU(), "x -> x"),
+            (Conv(in_channels=int(n_times/2), out_channels=int(n_times/4)), "x, edge_index -> x"),
+            (G.MeanAggregation(), "x, batch -> x"),
+            (T.Dropout(p=0.5), "x -> x"),
+            (T.Linear(in_features=int(n_times/4), out_features=n_outputs), "x -> x")
+        ])
 
     def forward(self, x, edge_index, batch):
-        x = self.conv1(x, edge_index)
-        x = torch.relu(x)
-        x = self.conv2(x, edge_index)
-        x = G.global_mean_pool(x, batch)
-        x = F.dropout(x, p=0.5)
-        x = self.linear(x)
-        return x
+        return self.model(x, edge_index, batch)
 
 
 class Brain2Vec(BaseModel):
-    def __init__(self, n_times=100, n_outputs=2):
+    def __init__(self, n_times=100, n_outputs=2, layer_type="GCN"):
         super().__init__(
             num_classes=2,
             hparams={k: v for k, v in locals().items() if k not in ["self", "__class__"]},
-            model=Model(n_times=n_times, n_outputs=n_outputs),
+            model=Model(n_times=n_times, n_outputs=n_outputs, layer_type=layer_type),
             loss=F.cross_entropy,
         )
 
