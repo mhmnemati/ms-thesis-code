@@ -60,7 +60,7 @@ class Brain2Vec(BaseModel):
         )
 
     @staticmethod
-    def add_args(parent_parser):
+    def add_arguments(parent_parser):
         parser = parent_parser.add_argument_group("Brain2Vec")
         parser.add_argument("--n_times", type=int, default=100)
         parser.add_argument("--n_outputs", type=int, default=2)

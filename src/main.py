@@ -26,7 +26,7 @@ parser.add_argument("-b", "--batches", type=int, default=8)
 
 temp_args, _ = parser.parse_known_args()
 Model, _ = model_classes[temp_args.model]
-parser = Model.add_args(parser)
+parser = Model.add_arguments(parser)
 
 args = parser.parse_args()
 
