@@ -1,56 +1,18 @@
-import os
 import mne
 import glob
 import random
 import numpy as np
+import scipy as sp
+import torch as pt
+
+from torch_geometric.data import Data
+from torch_geometric.loader import DataLoader
+from torch_geometric.utils.convert import from_scipy_sparse_matrix
 
 from .base import BaseDataset
 
 
-sleep_edf_20 = [
-    "SC4001E0-PSG.edf",
-    "SC4002E0-PSG.edf",
-    "SC4011E0-PSG.edf",
-    "SC4012E0-PSG.edf",
-    "SC4021E0-PSG.edf",
-    "SC4022E0-PSG.edf",
-    "SC4031E0-PSG.edf",
-    "SC4032E0-PSG.edf",
-    "SC4041E0-PSG.edf",
-    "SC4042E0-PSG.edf",
-    "SC4051E0-PSG.edf",
-    "SC4052E0-PSG.edf",
-    "SC4061E0-PSG.edf",
-    "SC4062E0-PSG.edf",
-    "SC4071E0-PSG.edf",
-    "SC4072E0-PSG.edf",
-    "SC4081E0-PSG.edf",
-    "SC4082E0-PSG.edf",
-    "SC4091E0-PSG.edf",
-    "SC4092E0-PSG.edf",
-    "SC4101E0-PSG.edf",
-    "SC4102E0-PSG.edf",
-    "SC4111E0-PSG.edf",
-    "SC4112E0-PSG.edf",
-    "SC4121E0-PSG.edf",
-    "SC4122E0-PSG.edf",
-    "SC4131E0-PSG.edf",
-    "SC4141E0-PSG.edf",
-    "SC4142E0-PSG.edf",
-    "SC4151E0-PSG.edf",
-    "SC4152E0-PSG.edf",
-    "SC4161E0-PSG.edf",
-    "SC4162E0-PSG.edf",
-    "SC4171E0-PSG.edf",
-    "SC4172E0-PSG.edf",
-    "SC4181E0-PSG.edf",
-    "SC4182E0-PSG.edf",
-    "SC4191E0-PSG.edf",
-    "SC4192E0-PSG.edf",
-]
-
-
-class SleepEDFXDataset(BaseDataset):
+class Generator:
     sfreq = 100
     window = 30
     overlap = 0
@@ -63,21 +25,54 @@ class SleepEDFXDataset(BaseDataset):
         "Sleep stage R"
     ]
 
-    def __init__(self, root=os.path.expanduser("~/pytorch_datasets/sleep_edfx"), train=True, transform=None):
-        super().__init__(
-            root=root,
-            split="train" if train else "test",
-            transform=transform,
-            generators=self._split_generators,
-            url="https://www.physionet.org/static/published-projects/sleep-edfx/sleep-edf-database-expanded-1.0.0.zip"
-        )
+    sleep_edf_20 = [
+        "SC4001E0-PSG.edf",
+        "SC4002E0-PSG.edf",
+        "SC4011E0-PSG.edf",
+        "SC4012E0-PSG.edf",
+        "SC4021E0-PSG.edf",
+        "SC4022E0-PSG.edf",
+        "SC4031E0-PSG.edf",
+        "SC4032E0-PSG.edf",
+        "SC4041E0-PSG.edf",
+        "SC4042E0-PSG.edf",
+        "SC4051E0-PSG.edf",
+        "SC4052E0-PSG.edf",
+        "SC4061E0-PSG.edf",
+        "SC4062E0-PSG.edf",
+        "SC4071E0-PSG.edf",
+        "SC4072E0-PSG.edf",
+        "SC4081E0-PSG.edf",
+        "SC4082E0-PSG.edf",
+        "SC4091E0-PSG.edf",
+        "SC4092E0-PSG.edf",
+        "SC4101E0-PSG.edf",
+        "SC4102E0-PSG.edf",
+        "SC4111E0-PSG.edf",
+        "SC4112E0-PSG.edf",
+        "SC4121E0-PSG.edf",
+        "SC4122E0-PSG.edf",
+        "SC4131E0-PSG.edf",
+        "SC4141E0-PSG.edf",
+        "SC4142E0-PSG.edf",
+        "SC4151E0-PSG.edf",
+        "SC4152E0-PSG.edf",
+        "SC4161E0-PSG.edf",
+        "SC4162E0-PSG.edf",
+        "SC4171E0-PSG.edf",
+        "SC4172E0-PSG.edf",
+        "SC4181E0-PSG.edf",
+        "SC4182E0-PSG.edf",
+        "SC4191E0-PSG.edf",
+        "SC4192E0-PSG.edf",
+    ]
 
-    def _split_generators(self, path):
+    def __call__(self, path):
         records = list(zip(
             sorted(glob.glob(f"{path}/**/*-PSG.edf", recursive=True)),
             sorted(glob.glob(f"{path}/**/*-Hypnogram.edf", recursive=True))
         ))
-        records = list(filter(lambda x: x[0].split("/")[-1] in sleep_edf_20, records))
+        records = list(filter(lambda x: x[0].split("/")[-1] in self.sleep_edf_20, records))
         random.shuffle(records)
 
         montage = mne.channels.make_standard_montage("standard_1020")
@@ -145,3 +140,51 @@ class SleepEDFXDataset(BaseDataset):
             targets[idx] = positions[electrodes[1]]
 
         return sources, targets, picks
+
+
+class SleepEDFXDataset(BaseDataset):
+    def __init__(self, **kwargs):
+        super().__init__(
+            name="sleep_edfx",
+            url="https://www.physionet.org/static/published-projects/sleep-edfx/sleep-edf-database-expanded-1.0.0.zip",
+            generator=Generator(),
+            transform=self.transform,
+            data_loader=DataLoader,
+            batch_size=kwargs["batch_size"],
+        )
+
+    def transform(self, item):
+        data = item["data"]
+        sources = item["sources"]
+        targets = item["targets"]
+
+        electrodes = np.unique(np.concatenate([sources, targets]), axis=0)
+
+        node_features = np.zeros((electrodes.shape[0], data.shape[1]), dtype=np.float32)
+        for i in range(len(data)):
+            # TODO: use other transformations (wavelet, fourier, hilbert, ...)
+            power = data[i] ** 2
+
+            source_idx = np.argwhere((electrodes == sources[i]).all(1)).item()
+            target_idx = np.argwhere((electrodes == targets[i]).all(1)).item()
+
+            node_features[source_idx] += power / 2
+            node_features[target_idx] += power / 2
+
+        adjecancy_matrix = np.zeros((electrodes.shape[0], electrodes.shape[0]), dtype=np.float64)
+        for i in range(electrodes.shape[0]):
+            for j in range(electrodes.shape[0]):
+                # TODO: construct graph edges methods (constant, clustering, dynamic, ...)
+                distance = np.linalg.norm(electrodes[j] - electrodes[i])
+                adjecancy_matrix[i, j] = 1 if distance < 0.1 else 0
+
+        edge_index = from_scipy_sparse_matrix(sp.sparse.csr_matrix(adjecancy_matrix))[0]
+        y = pt.tensor(item["label"])
+
+        return Data(x=pt.from_numpy(node_features), edge_index=edge_index, y=y)
+
+    @staticmethod
+    def add_arguments(parent_parser):
+        parser = parent_parser.add_argument_group("CHBMIT")
+        parser.add_argument("--batch_size", type=int, default=8)
+        return parent_parser
