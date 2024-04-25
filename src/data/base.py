@@ -25,10 +25,9 @@ class TensorDataset(Dataset):
 
 
 class BaseDataset(LightningDataModule):
-    def __init__(self, name, url, generator, transform, data_loader, batch_size):
+    def __init__(self, generator, transform, data_loader, batch_size):
         super().__init__()
-        self.root = os.path.expanduser(f"~/pytorch_datasets/{name}")
-        self.url = url
+        self.root = os.path.expanduser(f"~/pytorch_datasets/{generator.name}")
         self.generator = generator
         self.transform = transform
         self.data_loader = data_loader
@@ -39,7 +38,7 @@ class BaseDataset(LightningDataModule):
 
         # Download
         if not os.path.exists(f"{self.root}/data.zip"):
-            download_url_to_file(self.url, f"{self.root}/data.zip")
+            download_url_to_file(self.generator.url, f"{self.root}/data.zip")
 
         # Extract
         if not os.path.exists(f"{self.root}/extract"):

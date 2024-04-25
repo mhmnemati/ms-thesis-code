@@ -4,7 +4,7 @@ import lightning as L
 from lightning.pytorch.loggers import TensorBoardLogger
 
 from models import Brain2Vec, EEGInception
-from data import CHBMITDataset
+from data import CHBMITGraph2Vec, CHBMITGraph2Seq
 
 torch.multiprocessing.set_sharing_strategy("file_system")
 
@@ -13,7 +13,8 @@ model_classes = {
     "eeginception": EEGInception,
 }
 data_classes = {
-    "chb_mit": CHBMITDataset,
+    "chbmit_graph2vec": CHBMITGraph2Vec,
+    "chbmit_graph2seq": CHBMITGraph2Seq,
 }
 
 parser = argparse.ArgumentParser(description="Train model on data.")
