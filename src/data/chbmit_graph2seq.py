@@ -21,6 +21,7 @@ class CHBMITGraph2Seq(BaseDataset):
 
     def transform(self, item):
         data = item["data"]
+        labels = item["labels"]
         sources = item["sources"]
         targets = item["targets"]
 
@@ -45,7 +46,7 @@ class CHBMITGraph2Seq(BaseDataset):
                 adjecancy_matrix[i, j] = 1 if distance < 0.1 else 0
 
         edge_index = from_scipy_sparse_matrix(sp.sparse.csr_matrix(adjecancy_matrix))[0]
-        y = pt.tensor(item["label"])
+        y = pt.tensor(labels)
 
         return Data(x=pt.from_numpy(node_features), edge_index=edge_index, y=y)
 
