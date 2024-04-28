@@ -5,16 +5,23 @@ import random
 import numpy as np
 
 
-class Generator:
+class CHBMIT:
     url = "https://physionet.org/static/published-projects/chbmit/chb-mit-scalp-eeg-database-1.0.0.zip"
     name = "chb_mit"
     sfreq = 100
-    window = 1
-    overlap = 0
     labels = [
         "Normal",
         "Seizure"
     ]
+
+    hparams = {
+        "window": [1, 30],
+        "overlap": [0]
+    }
+
+    def __init__(self, window=1, overlap=0):
+        self.window = window
+        self.overlap = overlap
 
     def __call__(self, path):
         records = sorted(glob.glob(f"{path}/**/*.edf", recursive=True))

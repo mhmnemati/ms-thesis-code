@@ -13,8 +13,8 @@ model_classes = {
     "eeginception": EEGInception,
 }
 data_classes = {
-    "chbmit_graph2vec": CHBMITGraph2Vec,
-    "chbmit_graph2seq": CHBMITGraph2Seq,
+    "chb_mit_graph2vec": CHBMITGraph2Vec,
+    "chb_mit_graph2seq": CHBMITGraph2Seq,
 }
 
 parser = argparse.ArgumentParser(description="Train model on data.")

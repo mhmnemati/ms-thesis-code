@@ -7,13 +7,12 @@ from torch_geometric.loader import DataLoader
 from torch_geometric.utils.convert import from_scipy_sparse_matrix
 
 from .base import BaseDataset
-from .chbmit import Generator
 
 
-class CHBMITGraph2Vec(BaseDataset):
+class CHBMITGraph2Seq(BaseDataset):
     def __init__(self, **kwargs):
         super().__init__(
-            generator=Generator(),
+            root="~/pytorch_datasets/chb_mit_30",
             transform=self.transform,
             data_loader=DataLoader,
             batch_size=kwargs["batch_size"],
@@ -46,7 +45,7 @@ class CHBMITGraph2Vec(BaseDataset):
                 adjecancy_matrix[i, j] = 1 if distance < 0.1 else 0
 
         edge_index = from_scipy_sparse_matrix(sp.sparse.csr_matrix(adjecancy_matrix))[0]
-        y = pt.tensor(labels.max())
+        y = pt.tensor(labels)
 
         return Data(x=pt.from_numpy(node_features), edge_index=edge_index, y=y)
 
