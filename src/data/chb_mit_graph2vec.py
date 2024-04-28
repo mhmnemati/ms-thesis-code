@@ -12,7 +12,7 @@ from .base import BaseDataset
 class CHBMITGraph2Vec(BaseDataset):
     def __init__(self, **kwargs):
         super().__init__(
-            root="~/pytorch_datasets/chb_mit_30",
+            name="chb_mit_window_1_overlap_0",
             transform=self.transform,
             data_loader=DataLoader,
             batch_size=kwargs["batch_size"],
