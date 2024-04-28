@@ -4,7 +4,7 @@ import glob
 import random
 import numpy as np
 
-from .base import build
+from base import build
 
 
 class Generator:
