@@ -4,8 +4,10 @@ import glob
 import random
 import numpy as np
 
+from .base import build
 
-class CHBMIT:
+
+class Generator:
     url = "https://physionet.org/static/published-projects/chbmit/chb-mit-scalp-eeg-database-1.0.0.zip"
     name = "chb_mit"
     sfreq = 100
@@ -96,3 +98,6 @@ class CHBMIT:
             targets[idx] = positions[electrodes[1]]
 
         return sources, targets, picks
+
+
+build(Generator)

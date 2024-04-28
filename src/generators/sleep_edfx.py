@@ -3,8 +3,10 @@ import glob
 import random
 import numpy as np
 
+from .base import build
 
-class SleepEDFX:
+
+class Generator:
     url = "https://www.physionet.org/static/published-projects/sleep-edfx/sleep-edf-database-expanded-1.0.0.zip"
     name = "sleep_edfx"
     sfreq = 100
@@ -134,3 +136,6 @@ class SleepEDFX:
             targets[idx] = positions[electrodes[1]]
 
         return sources, targets, picks
+
+
+build(Generator)
