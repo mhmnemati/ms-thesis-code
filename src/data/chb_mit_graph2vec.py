@@ -19,10 +19,14 @@ class CHBMITGraph2Vec(BaseDataset):
         )
 
     def transform(self, item):
-        data = item["data"]
-        labels = item["labels"]
-        sources = item["sources"]
-        targets = item["targets"]
+        data = item["data"]         # (23, 3000)
+        labels = item["labels"]     # (30,)
+        sources = item["sources"]   # (23, 3)
+        targets = item["targets"]   # (23, 3)
+        # electrodes    (21, 3)
+        # node_feature  (21, 3000)
+        # edge_index    (21, 21)
+        # y             (1)
 
         electrodes = np.unique(np.concatenate([sources, targets]), axis=0)
 
