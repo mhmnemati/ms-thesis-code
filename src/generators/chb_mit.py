@@ -16,10 +16,14 @@ class Generator:
         "Seizure"
     ]
 
-    hparams = {
-        "window": [1, 30],
-        "overlap": [0]
-    }
+    hparams = [
+        {"window": 1, "overlap": 0},
+        {"window": 5, "overlap": 0},
+        {"window": 5, "overlap": 1},
+        {"window": 30, "overlap": 0},
+        {"window": 30, "overlap": 1},
+        {"window": 30, "overlap": 5},
+    ]
 
     def __init__(self, window=1, overlap=0):
         self.window = window

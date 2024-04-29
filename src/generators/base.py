@@ -6,9 +6,7 @@ from torch import save
 
 
 def build(Generator):
-    keys, values = zip(*Generator.hparams.items())
-
-    for kwargs in [dict(zip(keys, v)) for v in itertools.product(*values)]:
+    for kwargs in Generator.hparams:
         generator = Generator(**kwargs)
         root = os.path.expanduser(f"~/pytorch_datasets/{generator.name}")
 
