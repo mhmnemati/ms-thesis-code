@@ -1,4 +1,5 @@
 from .base import BaseModel
+import torch as pt
 import torch.nn.functional as F
 import braindecode.models as M
 
@@ -10,7 +11,7 @@ class Deep4Net(BaseModel):
             num_classes=hparams["n_outputs"],
             hparams=hparams,
             model=M.Deep4Net(**hparams),
-            loss=F.cross_entropy
+            loss=pt.nn.CrossEntropyLoss(weight=pt.tensor([0.01, 10000]))
         )
 
     @staticmethod
