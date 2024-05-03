@@ -87,7 +87,7 @@ class Generator:
 
         return {
             "train": self.get_items(records[slice(int(len(records) * 0.0), int(len(records) * 0.8))], positions),
-            "test": self.get_items(records[slice(int(len(records) * 0.8), int(len(records) * 1.0))], positions),
+            "valid": self.get_items(records[slice(int(len(records) * 0.8), int(len(records) * 1.0))], positions),
         }
 
     def get_items(self, records, positions):
