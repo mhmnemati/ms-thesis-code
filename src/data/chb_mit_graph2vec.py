@@ -49,7 +49,7 @@ class CHBMITGraph2Vec(BaseDataset):
                 adjecancy_matrix[i, j] = 1 if distance < 0.1 else 0
 
         edge_index = from_scipy_sparse_matrix(sp.sparse.csr_matrix(adjecancy_matrix))[0]
-        y = pt.tensor(labels.max())
+        y = pt.tensor([labels.max()])
 
         return Data(x=pt.from_numpy(node_features), edge_index=edge_index, y=y)
 

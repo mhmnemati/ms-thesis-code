@@ -51,7 +51,7 @@ class Brain2Vec(BaseModel):
             num_classes=2,
             hparams=hparams,
             model=Model(**hparams),
-            loss=F.nll_loss,
+            loss=lambda pred, true: F.mse_loss(pred, F.one_hot(true, num_classes=2).float())
         )
 
     @staticmethod

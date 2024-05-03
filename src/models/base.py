@@ -10,6 +10,7 @@ class BaseModel(L.LightningModule):
     def __init__(self, num_classes, hparams, model, loss):
         super().__init__()
         self.save_hyperparameters(hparams)
+        self.num_classes = num_classes
         self.model = model
         self.loss = loss
 
@@ -43,11 +44,11 @@ class BaseModel(L.LightningModule):
         if isinstance(batch, Batch):
             batch_size = batch.num_graphs
             args = (batch.x, batch.edge_index, batch.batch)
-            y = batch.y
+            y = batch.y.view(-1)
         else:
             batch_size = len(batch[1])
             args = (batch[0],)
-            y = batch[1]
+            y = batch[1].view(-1)
 
         pred = self.model(*args)
         loss = self.loss(pred, y)
