@@ -4,7 +4,7 @@ import lightning as L
 from lightning.pytorch.loggers import TensorBoardLogger
 
 from models import Deep4Net, EEGInception, Brain2Vec, Brain2Seq
-from data import CHBMIT
+from data import CHBMIT, SleepEDFX
 
 torch.multiprocessing.set_sharing_strategy("file_system")
 
@@ -16,6 +16,7 @@ model_classes = {
 }
 data_classes = {
     "chb_mit": CHBMIT,
+    "sleep_edfx": SleepEDFX,
 }
 
 parser = argparse.ArgumentParser(description="Train model on data.")
