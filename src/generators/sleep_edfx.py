@@ -10,8 +10,6 @@ class Generator:
     url = "https://www.physionet.org/static/published-projects/sleep-edfx/sleep-edf-database-expanded-1.0.0.zip"
     name = "sleep_edfx"
     sfreq = 100
-    window = 30
-    overlap = 0
     labels = [
         "Sleep stage W",
         "Sleep stage 1",
@@ -19,6 +17,15 @@ class Generator:
         "Sleep stage 3",
         "Sleep stage 4",
         "Sleep stage R"
+    ]
+
+    hparams = [
+        {"window": 1, "overlap": 0},
+        {"window": 5, "overlap": 0},
+        {"window": 5, "overlap": 1},
+        {"window": 30, "overlap": 0},
+        {"window": 30, "overlap": 1},
+        {"window": 30, "overlap": 5},
     ]
 
     sleep_edf_20 = [
@@ -78,17 +85,17 @@ class Generator:
         }
 
         return {
-            "train": self._get_items(records[slice(int(len(records) * 0.0), int(len(records) * 0.8))], positions),
-            "test": self._get_items(records[slice(int(len(records) * 0.8), int(len(records) * 1.0))], positions),
+            "train": self.get_items(records[slice(int(len(records) * 0.0), int(len(records) * 0.8))], positions),
+            "test": self.get_items(records[slice(int(len(records) * 0.8), int(len(records) * 1.0))], positions),
         }
 
-    def _get_items(self, records, positions):
+    def get_items(self, records, positions):
         for record in records:
             raw = mne.io.read_raw_edf(record[0], infer_types=True, exclude=["Event marker", "Marker"])
             annotations = mne.read_annotations(record[1])
 
-            labels, tmin, tmax = self._get_labels(raw, annotations)
-            sources, targets, picks = self._get_montage(raw, positions)
+            labels, tmin, tmax = self.get_labels(raw, annotations)
+            sources, targets, picks = self.get_montage(raw, positions)
 
             # TODO: resample raw to self.sfreq
             data = raw.get_data(tmin=tmin, tmax=tmax, picks=picks).astype(np.float32)
@@ -100,12 +107,12 @@ class Generator:
 
                 yield {
                     "data": data[:, low*self.sfreq:high*self.sfreq],
-                    "label": labels[low:high].max(),
+                    "labels": labels[low:high],
                     "sources": sources,
                     "targets": targets,
                 }
 
-    def _get_labels(self, raw, annotations, crop_wake_mins=30):
+    def get_labels(self, raw, annotations, crop_wake_mins=30):
         seconds = int(raw.n_times / self.sfreq)
         labels = np.zeros(seconds, dtype=np.int64)
 
@@ -124,7 +131,7 @@ class Generator:
 
         return labels[tmin:tmax], tmin, tmax
 
-    def _get_montage(self, raw, positions):
+    def get_montage(self, raw, positions):
         picks = mne.pick_types(raw.info, eeg=True)
 
         sources = np.zeros((len(picks), 3), dtype=np.float32)
