@@ -1,7 +1,6 @@
 import torch as T
 import lightning as L
 import torchmetrics as M
-import torch.nn.functional as F
 
 from torch_geometric.data.batch import Batch
 
@@ -16,7 +15,6 @@ class BaseModel(L.LightningModule):
 
         metrics = M.MetricCollection({
             "f1": M.F1Score(task="multiclass", num_classes=num_classes),
-            "aucroc": M.AUROC(task="multiclass", num_classes=num_classes),
             "recall": M.Recall(task="multiclass", num_classes=num_classes),
             "accuracy": M.Accuracy(task="multiclass", num_classes=num_classes),
             "precision": M.Precision(task="multiclass", num_classes=num_classes),
@@ -44,14 +42,15 @@ class BaseModel(L.LightningModule):
         if isinstance(batch, Batch):
             batch_size = batch.num_graphs
             args = (batch.x, batch.edge_index, batch.batch)
-            y = batch.y.view(-1)
+            y = batch.y
         else:
             batch_size = len(batch[1])
             args = (batch[0],)
-            y = batch[1].view(-1)
+            y = batch[1]
 
         pred = self.model(*args)
         loss = self.loss(pred, y)
+        pred = pred.argmax(-1)
 
         return (batch_size, loss, pred, y)
 

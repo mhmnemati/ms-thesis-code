@@ -48,7 +48,7 @@ class Brain2Vec(BaseModel):
     def __init__(self, **kwargs):
         hparams = {k: v for k, v in kwargs.items() if k in ["n_times", "n_outputs", "layer_type", "aggregator"]}
         super().__init__(
-            num_classes=2,
+            num_classes=hparams["n_outputs"],
             hparams=hparams,
             model=Model(**hparams),
             loss=lambda pred, true: F.cross_entropy(pred, true)

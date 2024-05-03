@@ -10,7 +10,7 @@ from torch_geometric.utils.convert import from_scipy_sparse_matrix
 from .base import BaseDataset
 
 
-class CHBMITVec2Vec(BaseDataset):
+class CHBMIT(BaseDataset):
     def __init__(self, **kwargs):
         transform = self.vec2vec
         data_loader = TensorDataLoader
@@ -32,7 +32,7 @@ class CHBMITVec2Vec(BaseDataset):
         data = item["data"]         # (23, 3000)
         labels = item["labels"]     # (30,)
 
-        y = pt.tensor([labels.max()])
+        y = pt.tensor(labels.max())
 
         return (data, y)
 
@@ -67,7 +67,7 @@ class CHBMITVec2Vec(BaseDataset):
                 adjecancy_matrix[i, j] = 1 if distance < 0.1 else 0
 
         edge_index = from_scipy_sparse_matrix(sp.sparse.csr_matrix(adjecancy_matrix))[0]
-        y = pt.tensor([labels.max()])
+        y = pt.tensor(labels.max())
 
         return Data(x=pt.from_numpy(node_features), edge_index=edge_index, y=y)
 

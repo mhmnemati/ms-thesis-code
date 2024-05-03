@@ -7,7 +7,7 @@ class Deep4Net(BaseModel):
     def __init__(self, **kwargs):
         hparams = {k: v for k, v in kwargs.items() if k in ["n_times", "n_chans", "n_outputs"]}
         super().__init__(
-            num_classes=2,
+            num_classes=hparams["n_outputs"],
             hparams=hparams,
             model=M.Deep4Net(**hparams),
             loss=lambda pred, true: F.cross_entropy(pred, true)
