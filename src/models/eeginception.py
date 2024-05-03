@@ -10,7 +10,7 @@ class EEGInception(BaseModel):
             num_classes=2,
             hparams=hparams,
             model=M.EEGInception(**hparams),
-            loss=lambda pred, true: F.nll_loss(pred, true)
+            loss=lambda pred, true: F.cross_entropy(pred, true)
         )
 
     @staticmethod

@@ -3,19 +3,19 @@ import torch.nn.functional as F
 import braindecode.models as M
 
 
-class DeepSleepNet(BaseModel):
+class Deep4Net(BaseModel):
     def __init__(self, **kwargs):
         hparams = {k: v for k, v in kwargs.items() if k in ["n_times", "n_chans", "n_outputs"]}
         super().__init__(
             num_classes=2,
             hparams=hparams,
-            model=M.EEGInception(**hparams),
+            model=M.Deep4Net(**hparams),
             loss=lambda pred, true: F.cross_entropy(pred, true)
         )
 
     @staticmethod
     def add_arguments(parent_parser):
-        parser = parent_parser.add_argument_group("DeepSleepNet")
+        parser = parent_parser.add_argument_group("Deep4Net")
         parser.add_argument("--n_times", type=int, default=3000)
         parser.add_argument("--n_chans", type=int, default=23)
         parser.add_argument("--n_outputs", type=int, default=2)

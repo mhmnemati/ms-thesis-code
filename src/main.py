@@ -3,21 +3,19 @@ import argparse
 import lightning as L
 from lightning.pytorch.loggers import TensorBoardLogger
 
-from models import DeepSleepNet, EEGInception, Brain2Vec, Brain2Seq
-from data import CHBMITVec2Vec, CHBMITGraph2Vec, CHBMITGraph2Seq
+from models import Deep4Net, EEGInception, Brain2Vec, Brain2Seq
+from data import CHBMIT
 
 torch.multiprocessing.set_sharing_strategy("file_system")
 
 model_classes = {
-    "deepsleepnet": DeepSleepNet,
+    "deep4net": Deep4Net,
     "eeginception": EEGInception,
     "brain2vec": Brain2Vec,
     "brain2seq": Brain2Seq,
 }
 data_classes = {
-    "chb_mit_vec2vec": CHBMITVec2Vec,
-    "chb_mit_graph2vec": CHBMITGraph2Vec,
-    "chb_mit_graph2seq": CHBMITGraph2Seq,
+    "chb_mit": CHBMIT,
 }
 
 parser = argparse.ArgumentParser(description="Train model on data.")

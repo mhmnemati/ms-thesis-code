@@ -54,7 +54,7 @@ class Model(T.Module):
 class Brain2Seq(BaseModel):
     def __init__(self, **kwargs):
         def loss_fn(pred, true):
-            return F.nll_loss(pred, true)
+            return F.cross_entropy(pred, true)
 
         hparams = {k: v for k, v in kwargs.items() if k in ["n_times", "n_nodes", "n_outputs", "layer_type", "aggregator"]}
         super().__init__(
