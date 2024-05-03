@@ -70,6 +70,10 @@ class Generator:
         "SC4192E0-PSG.edf",
     ]
 
+    def __init__(self, window=1, overlap=0):
+        self.window = window
+        self.overlap = overlap
+
     def __call__(self, path):
         records = list(zip(
             sorted(glob.glob(f"{path}/**/*-PSG.edf", recursive=True)),
