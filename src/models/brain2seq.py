@@ -31,24 +31,28 @@ class Model(T.Module):
         elif aggregator == "median":
             Agg = G.MedianAggregation
 
-        self.model = G.Sequential("x, edge_index, batch", [
+        self.n_nodes = n_nodes
+        self.part1 = G.Sequential("x, edge_index, batch", [
             (Conv(in_channels=n_times, out_channels=int(n_times/2)), "x, edge_index -> x"),
             (T.ReLU(), "x -> x"),
             (Conv(in_channels=int(n_times/2), out_channels=int(n_times/4)), "x, edge_index -> x"),
-
-            (lambda batch: batch.max() + 1, "batch -> batch_size"),
-            (lambda batch, batch_size: int(len(batch) / batch_size / n_nodes), "batch, batch_size -> graph_len"),
-            (lambda batch_size, graph_len: torch.arange(batch_size * graph_len).repeat_interleave(n_nodes), "batch_size, graph_len -> batch"),
-
+        ])
+        self.part2 = G.Sequential("x, batch", [
             (Agg(), "x, batch -> x"),
             (T.Dropout(p=0.1), "x -> x"),
             (T.Linear(in_features=int(n_times/4), out_features=n_outputs), "x -> x"),
-
-            (lambda x, batch_size, graph_len: x.reshape(batch_size, graph_len, -1), "x, batch_size, graph_len -> x")
         ])
 
     def forward(self, x, edge_index, batch):
-        return self.model(x, edge_index, batch)
+        x = self.part1(x, edge_index, batch)
+
+        batch_size = batch.max() + 1
+        graph_len = int(len(batch) / batch_size / self.n_nodes)
+        batch = torch.arange(batch_size * graph_len).repeat_interleave(self.n_nodes)
+
+        x = self.part2(x, batch)
+
+        return x.reshape(batch_size, graph_len, -1)
 
 
 class Brain2Seq(BaseModel):
@@ -64,7 +68,7 @@ class Brain2Seq(BaseModel):
             loss=loss_fn
         )
 
-    @staticmethod
+    @ staticmethod
     def add_arguments(parent_parser):
         parser = parent_parser.add_argument_group("Brain2Seq")
         parser.add_argument("--n_times", type=int, default=100)
