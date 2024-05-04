@@ -9,12 +9,12 @@ class SleepEDFX(BaseDataset):
     def __init__(self, **kwargs):
         super().__init__(
             name="sleep_edfx_window_30_overlap_5",
-            transform=self.vec2vec,
+            transform=self.tensor2vec,
             data_loader=DataLoader,
             batch_size=kwargs["batch_size"],
         )
 
-    def vec2vec(self, item):
+    def tensor2vec(self, item):
         data = item["data"]         # (6, 3000)
         labels = item["labels"]     # (30,)
 
