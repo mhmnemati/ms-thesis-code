@@ -1,4 +1,4 @@
-import torch as T
+import torch as pt
 import lightning as L
 import torchmetrics as M
 
@@ -28,8 +28,8 @@ class BaseModel(L.LightningModule):
         return self.model(*args)
 
     def configure_optimizers(self):
-        optimizer = T.optim.Adam(self.parameters(), lr=1e-1)
-        scheduler = T.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
+        optimizer = pt.optim.Adam(self.parameters(), lr=1e-1)
+        scheduler = pt.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
         return [optimizer], [scheduler]
 
     def on_train_start(self):
@@ -43,7 +43,7 @@ class BaseModel(L.LightningModule):
         batch_size, args, y = 0, 0, 0
         if isinstance(batch, Batch):
             batch_size = batch.num_graphs
-            args = (batch.x, batch.edge_index, batch.batch)
+            args = (batch.x, batch.edge_index, batch.graph_size, batch.graph_length, batch.batch)
             y = batch.y
         else:
             batch_size = len(batch[1])

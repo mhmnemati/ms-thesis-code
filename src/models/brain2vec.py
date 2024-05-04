@@ -30,7 +30,7 @@ class Model(T.Module):
         elif aggregator == "median":
             Agg = G.MedianAggregation
 
-        self.model = G.Sequential("x, edge_index, batch", [
+        self.model = G.Sequential("x, edge_index, graph_size, graph_length, batch", [
             (Conv(in_channels=n_times, out_channels=int(n_times/2)), "x, edge_index -> x"),
             (T.ReLU(), "x -> x"),
             (Conv(in_channels=int(n_times/2), out_channels=int(n_times/4)), "x, edge_index -> x"),
@@ -40,8 +40,8 @@ class Model(T.Module):
             (T.LogSoftmax(dim=1), "x -> x")
         ])
 
-    def forward(self, x, edge_index, batch):
-        return self.model(x, edge_index, batch)
+    def forward(self, x, edge_index, graph_size, graph_length, batch):
+        return self.model(x, edge_index, graph_size, graph_length, batch)
 
 
 class Brain2Vec(BaseModel):

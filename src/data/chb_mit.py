@@ -67,9 +67,12 @@ class CHBMIT(BaseDataset):
                 adjecancy_matrix[i, j] = 1 if distance < 0.1 else 0
 
         edge_index = from_scipy_sparse_matrix(sp.sparse.csr_matrix(adjecancy_matrix))[0]
+        graph_size = pt.tensor(electrodes.shape[0])
+        graph_length = pt.tensor(1)
+
         y = pt.tensor(labels.max())
 
-        return Data(x=pt.from_numpy(node_features), edge_index=edge_index, y=y)
+        return Data(x=pt.from_numpy(node_features), edge_index=edge_index, graph_size=graph_size, graph_length=graph_length, y=y)
 
     def graph2seq(self, item):
         data = item["data"]         # (23, 3000)
@@ -111,9 +114,11 @@ class CHBMIT(BaseDataset):
                     adjecancy_matrix[(x*elecs)+i, (x*elecs)+j] = 1 if distance < 0.1 else 0
 
         edge_index = from_scipy_sparse_matrix(sp.sparse.csr_matrix(adjecancy_matrix))[0]
+        graph_size = pt.tensor(electrodes.shape[0])
+        graph_length = pt.tensor(length)
         y = pt.tensor(labels.reshape(1, -1))
 
-        return Data(x=pt.from_numpy(node_features), edge_index=edge_index, y=y)
+        return Data(x=pt.from_numpy(node_features), edge_index=edge_index, graph_size=graph_size, graph_length=graph_length, y=y)
 
     @staticmethod
     def add_arguments(parent_parser):
