@@ -21,6 +21,9 @@ class CHBMIT(BaseDataset):
             transform = self.graph2seq
             data_loader = GraphDataLoader
 
+        self.edge_select = kwargs["edge_select"]
+        self.wave_transform = kwargs["wave_transform"]
+
         super().__init__(
             name="chb_mit_window_30_overlap_5",
             transform=transform,
@@ -50,14 +53,19 @@ class CHBMIT(BaseDataset):
         node_features = np.zeros((n_electrodes * n_graphs, n_times), dtype=np.float32)
         for idx in range(n_graphs):
             for i in range(data.shape[0]):
-                # TODO: use other transformations (wavelet, fourier, hilbert, ...)
-                power = data[i, idx*n_times:(idx+1)*n_times] ** 2
-
-                source_idx = np.argwhere((electrodes == sources[i]).all(1)).item()
-                target_idx = np.argwhere((electrodes == targets[i]).all(1)).item()
-
-                node_features[source_idx] += power / 2
-                node_features[target_idx] += power / 2
+                # Convert bipolar wave data to electrode node_features
+                if self.wave_transform == "power":
+                    power = data[i, idx*n_times:(idx+1)*n_times] ** 2
+                    source_idx = np.argwhere((electrodes == sources[i]).all(1)).item()
+                    target_idx = np.argwhere((electrodes == targets[i]).all(1)).item()
+                    node_features[source_idx] += power / 2
+                    node_features[target_idx] += power / 2
+                elif self.wave_transform == "fourier":
+                    # TODO: implementation needed
+                    pass
+                elif self.wave_transform == "wavelet":
+                    # TODO: implementation needed
+                    pass
 
         adjecancy_matrix = np.zeros((n_electrodes * n_graphs, n_electrodes * n_graphs), dtype=np.float64)
         for idx in range(n_graphs):
@@ -69,10 +77,19 @@ class CHBMIT(BaseDataset):
                         adjecancy_matrix[(idx*n_electrodes)+i, ((idx+c)*n_electrodes)+i] = 1
 
                 # Inter graph connections (const/cluster/dynamic/...)
-                # TODO: construct graph edges methods (constant, clustering, dynamic, ...)
                 for j in range(n_electrodes):
-                    distance = np.linalg.norm(electrodes[j] - electrodes[i])
-                    adjecancy_matrix[(idx*n_electrodes)+i, (idx*n_electrodes)+j] = 1 if distance < 0.1 else 0
+                    if self.edge_select == "far":
+                        distance = np.linalg.norm(electrodes[j] - electrodes[i])
+                        adjecancy_matrix[(idx*n_electrodes)+i, (idx*n_electrodes)+j] = 1 if distance > 0.1 else 0
+                    elif self.edge_select == "close":
+                        distance = np.linalg.norm(electrodes[j] - electrodes[i])
+                        adjecancy_matrix[(idx*n_electrodes)+i, (idx*n_electrodes)+j] = 1 if distance < 0.1 else 0
+                    elif self.edge_select == "cluster":
+                        # TODO: implementation needed
+                        pass
+                    elif self.edge_select == "dynamic":
+                        # TODO: implementation needed
+                        pass
 
         return Data(
             x=pt.from_numpy(node_features),
@@ -93,4 +110,6 @@ class CHBMIT(BaseDataset):
         parser = parent_parser.add_argument_group("CHBMIT")
         parser.add_argument("--batch_size", type=int, default=8)
         parser.add_argument("--batch_type", type=str, default="tensor2vec", choices=["tensor2vec", "graph2vec", "graph2seq"])
+        parser.add_argument("--edge_select", type=str, default="far", choices=["far", "close", "cluster", "dynamic"])
+        parser.add_argument("--wave_transform", type=str, default="power", choices=["power", "fourier", "wavelet"])
         return parent_parser
