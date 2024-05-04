@@ -40,8 +40,8 @@ class Model(T.Module):
             (T.LogSoftmax(dim=1), "x -> x")
         ])
 
-    def forward(self, x, edge_index, graph_size, graph_length, batch):
-        return self.model(x, edge_index, graph_size, graph_length, batch)
+    def forward(self, *args):
+        return self.model(*args)
 
 
 class Brain2Vec(BaseModel):

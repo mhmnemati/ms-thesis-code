@@ -31,40 +31,32 @@ class Model(T.Module):
         elif aggregator == "median":
             Agg = G.MedianAggregation
 
-        self.part1 = G.Sequential("x, edge_index, batch", [
+        self.model = G.Sequential("x, edge_index, graph_size, graph_length, batch", [
             (Conv(in_channels=n_times, out_channels=int(n_times/2)), "x, edge_index -> x"),
             (T.ReLU(), "x -> x"),
             (Conv(in_channels=int(n_times/2), out_channels=int(n_times/4)), "x, edge_index -> x"),
-        ])
-        self.part2 = G.Sequential("x, batch", [
+
+            # batch = [0[3*5], 1[2*4], 2[1*3]]
+            # batch_size = 3
+            # graph_size = [3,2,1]
+            # graph_length = [5,4,3]
+            # batch_old = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 1,1,1,1,1,1,1,1, 2,2,2] = (26)
+            # batch_new = [0,0,0,1,1,1,2,2,2,3,3,3,4,4,4, 5,5,6,6,7,7,8,8, 9,10,11] = (26)
+            # Caution: this implementation is highly optimized and complex
+            (lambda graph_size, graph_length: pt.repeat_interleave(pt.arange(graph_length.sum()), pt.repeat_interleave(graph_size, graph_length)), "graph_size, graph_length -> batch"),
+
             (Agg(), "x, batch -> x"),
             (T.Dropout(p=0.1), "x -> x"),
             (T.Linear(in_features=int(n_times/4), out_features=n_outputs), "x -> x"),
+
+            # x_old = (12, 2)
+            # x_tmp = [(5,2), (4,2), (3,2)]
+            # x_new = (3, 5=max(graph_length), 2)
+            (lambda x, graph_length: pt.nn.utils.rnn.pad_sequence(x.split(list(graph_length)), batch_first=True), "x, graph_length -> x"),
         ])
 
-    def forward(self, x, edge_index, graph_size, graph_length, batch):
-        x = self.part1(x, edge_index, batch)
-
-        # batch = [0[3*5], 1[2*4], 2[1*3]]
-        # batch_size = 3
-        # graph_size = [3,2,1]
-        # graph_length = [5,4,3]
-
-        # batch_old = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 1,1,1,1,1,1,1,1, 2,2,2] = (26)
-        # batch_new = [0,0,0,1,1,1,2,2,2,3,3,3,4,4,4, 5,5,6,6,7,7,8,8, 9,10,11] = (26)
-
-        # Caution: this implementation is highly optimized and complex
-
-        batch = pt.repeat_interleave(pt.arange(graph_length.sum()), pt.repeat_interleave(graph_size, graph_length))
-
-        x = self.part2(x, batch)
-
-        # x_old = (12, 2)
-        # x_tmp = [(5,2), (4,2), (3,2)]
-        # x_new = (3, 5=max(graph_length), 2)
-        x = pt.nn.utils.rnn.pad_sequence(x.split(list(graph_length)), batch_first=True)
-
-        return x
+    def forward(self, *args):
+        return self.model(*args)
 
 
 class Brain2Seq(BaseModel):
