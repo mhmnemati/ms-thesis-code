@@ -51,14 +51,14 @@ class Brain2Vec(BaseModel):
             num_classes=hparams["n_outputs"],
             hparams=hparams,
             model=Model(**hparams),
-            loss=F.cross_entropy
+            loss=F.binary_cross_entropy_with_logits if hparams["n_outputs"] <= 1 else F.cross_entropy
         )
 
     @staticmethod
     def add_arguments(parent_parser):
         parser = parent_parser.add_argument_group("Brain2Vec")
         parser.add_argument("--n_times", type=int, default=3000)
-        parser.add_argument("--n_outputs", type=int, default=2)
+        parser.add_argument("--n_outputs", type=int, default=1)
         parser.add_argument("--layer_type", type=str, default="gcn", choices=["gcn", "gcn2", "gat", "gat2", "cheb"])
         parser.add_argument("--aggregator", type=str, default="min", choices=["min", "max", "mean", "median"])
         return parent_parser

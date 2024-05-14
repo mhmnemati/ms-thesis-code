@@ -10,7 +10,7 @@ class EEGInception(BaseModel):
             num_classes=hparams["n_outputs"],
             hparams=hparams,
             model=M.EEGInception(**hparams),
-            loss=F.cross_entropy
+            loss=F.binary_cross_entropy_with_logits if hparams["n_outputs"] <= 1 else F.cross_entropy
         )
 
     @staticmethod
@@ -18,5 +18,5 @@ class EEGInception(BaseModel):
         parser = parent_parser.add_argument_group("EEGInception")
         parser.add_argument("--n_times", type=int, default=3000)
         parser.add_argument("--n_chans", type=int, default=23)
-        parser.add_argument("--n_outputs", type=int, default=2)
+        parser.add_argument("--n_outputs", type=int, default=1)
         return parent_parser

@@ -13,16 +13,25 @@ class BaseModel(L.LightningModule):
         self.model = model
         self.loss = loss
 
-        metrics = M.MetricCollection({
-            "f1": M.F1Score(task="multiclass", num_classes=num_classes),
-            "recall": M.Recall(task="multiclass", num_classes=num_classes),
-            "accuracy": M.Accuracy(task="multiclass", num_classes=num_classes),
-            "precision": M.Precision(task="multiclass", num_classes=num_classes),
-        })
+        if num_classes > 1:
+            self.validation_matrix = M.ConfusionMatrix(task="multiclass", num_classes=num_classes)
+            self.metrics = M.MetricCollection({
+                "f1": M.F1Score(task="multiclass", num_classes=num_classes),
+                "recall": M.Recall(task="multiclass", num_classes=num_classes),
+                "accuracy": M.Accuracy(task="multiclass", num_classes=num_classes),
+                "precision": M.Precision(task="multiclass", num_classes=num_classes),
+            })
+        else:
+            self.validation_matrix = M.ConfusionMatrix(task="binary")
+            self.metrics = M.MetricCollection({
+                "f1": M.F1Score(task="binary"),
+                "recall": M.Recall(task="binary"),
+                "accuracy": M.Accuracy(task="binary"),
+                "precision": M.Precision(task="binary"),
+            })
 
-        self.training_metrics = metrics.clone(prefix="training/")
-        self.validation_metrics = metrics.clone(prefix="validation/")
-        self.validation_matrix = M.ConfusionMatrix(task="multiclass", num_classes=num_classes)
+        self.training_metrics = self.metrics.clone(prefix="training/")
+        self.validation_metrics = self.metrics.clone(prefix="validation/")
 
     def forward(self, *args):
         return self.model(*args)
@@ -51,8 +60,15 @@ class BaseModel(L.LightningModule):
             y = batch[1]
 
         pred = self.model(*args)
+
+        if pred.shape[-1] == 1:
+            pred = pred.view(-1)
+            y = y.float()
+
         loss = self.loss(pred, y)
-        pred = pred.argmax(-1)
+
+        if len(pred.shape) > 1:
+            pred = pred.argmax(-1)
 
         return (batch_size, loss, pred, y)
 

@@ -62,7 +62,13 @@ class Model(T.Module):
 class Brain2Seq(BaseModel):
     def __init__(self, **kwargs):
         def loss_fn(pred, true):
-            return F.cross_entropy(pred.view(-1, hparams["n_outputs"]), true.view(-1))
+            if hparams["n_outputs"] > 1:
+                # pred: (8, 30, 2)
+                # true: (8, 30)
+                print(pred.shape)
+                return F.cross_entropy(pred.view(-1, hparams["n_outputs"]), true.view(-1))
+
+            return F.binary_cross_entropy_with_logits(pred.view(-1))
 
         hparams = {k: v for k, v in kwargs.items() if k in ["n_times", "n_outputs", "layer_type", "aggregator"]}
         super().__init__(
@@ -72,7 +78,7 @@ class Brain2Seq(BaseModel):
             loss=loss_fn
         )
 
-    @ staticmethod
+    @staticmethod
     def add_arguments(parent_parser):
         parser = parent_parser.add_argument_group("Brain2Seq")
         parser.add_argument("--n_times", type=int, default=100)
