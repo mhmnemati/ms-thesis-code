@@ -11,7 +11,7 @@ from .base import BaseDataset
 
 
 class CHBMIT(BaseDataset):
-    def __init__(self, **kwargs):
+    def __init__(self, fold, folds, **kwargs):
         transform = self.tensor2vec
         data_loader = TensorDataLoader
         if kwargs["batch_type"] == "graph2vec":
@@ -25,14 +25,47 @@ class CHBMIT(BaseDataset):
         self.wave_transform = kwargs["wave_transform"]
 
         super().__init__(
-            name="chb_mit_window_30_overlap_5",
+            name="chb_mit_transformed",
+            filters=self.filters(fold, folds),
             transform=transform,
             data_loader=data_loader,
             batch_size=kwargs["batch_size"],
         )
 
+    def filters(self, fold, folds):
+        def kfold(items, train):
+            patients = np.arange(1, 25)
+            np.random.shuffle(patients)
+            parts = np.array_split(patients, folds)
+
+            valid_patients = parts[fold]
+            train_patients = np.array([p for p in patients if p not in valid_patients])
+
+            if folds == 1:
+                temp = train_patients
+                train_patients = valid_patients
+                valid_patients = temp
+
+            def my_filter(x):
+                patients = valid_patients
+                if train:
+                    patients = train_patients
+
+                for i in patients:
+                    if f"chb{i:02d}" in x:
+                        return True
+
+                return False
+
+            return list(filter(my_filter, items))
+
+        return {
+            "train": lambda items: kfold(items, True),
+            "valid": lambda items: kfold(items, False),
+        }
+
     def tensor2vec(self, item):
-        return (item["data"], item["labels"].max())
+        return (item["data"], item["label"])
 
     def get_graph(self, full, data, labels, sources, targets):
         # electrodes        (21, 3)

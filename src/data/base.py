@@ -7,9 +7,9 @@ from lightning import LightningDataModule
 
 
 class TensorDataset(Dataset):
-    def __init__(self, root, transform):
+    def __init__(self, root, filter, transform):
         self.transform = transform
-        self.items = glob.glob(f"{os.path.expanduser(root)}/*.pt")
+        self.items = filter(glob.glob(f"{os.path.expanduser(root)}/**/*.pt", recursive=True))
 
     def __len__(self):
         return len(self.items)
@@ -23,23 +23,24 @@ class TensorDataset(Dataset):
 
 
 class BaseDataset(LightningDataModule):
-    def __init__(self, name, transform, data_loader, batch_size):
+    def __init__(self, name, filters, transform, data_loader, batch_size):
         super().__init__()
         self.root = f"~/pytorch_datasets/{name}"
+        self.filters = filters
         self.transform = transform
         self.data_loader = data_loader
         self.batch_size = batch_size
 
     def setup(self, stage):
         if stage == "fit":
-            self.trainset = TensorDataset(f"{self.root}/train", transform=self.transform)
-            self.validset = TensorDataset(f"{self.root}/valid", transform=self.transform)
+            self.trainset = TensorDataset(f"{self.root}/train", filter=self.filters["train"], transform=self.transform)
+            self.validset = TensorDataset(f"{self.root}/train", filter=self.filters["valid"], transform=self.transform)
 
         if stage == "test":
-            self.testset = TensorDataset(f"{self.root}/test", transform=self.transform)
+            self.testset = TensorDataset(f"{self.root}/test", filter=self.filters["test"], transform=self.transform)
 
         if stage == "predict":
-            self.predictset = TensorDataset(f"{self.root}/predict", transform=self.transform)
+            self.predictset = TensorDataset(f"{self.root}/predict", filter=self.filters["predict"], transform=self.transform)
 
     def train_dataloader(self):
         return self.data_loader(self.trainset, batch_size=self.batch_size, num_workers=int(self.batch_size/2))
