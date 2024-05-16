@@ -1,7 +1,9 @@
+import os
 import random
 import numpy as np
 import scipy as sp
 import torch as pt
+import pandas as pd
 
 from torch_geometric.data import Data
 from torch.utils.data import DataLoader as TensorDataLoader
@@ -15,6 +17,7 @@ class CHBMIT(BaseDataset):
     seed = 100
     max_seizures = 400
     normal_seizure_ratio = 4
+    electrode_distances = pd.read_csv(f"{os.path.dirname(__file__)}/distances_3d.csv")
 
     def __init__(self, fold, folds, **kwargs):
         transform = self.tensor2vec
@@ -91,7 +94,7 @@ class CHBMIT(BaseDataset):
     def tensor2vec(self, item):
         return (item["data"], item["label"])
 
-    def get_graph(self, full, data, labels, sources, targets):
+    def get_graph(self, full, data, label, sources, targets):
         # electrodes        (21, 3)
 
         # node_feature      (21, 3000)
@@ -102,71 +105,71 @@ class CHBMIT(BaseDataset):
         # adjacency_matrix  (21*30, 21*30)
         # y                 (30)
 
-        electrodes = np.unique(np.concatenate([sources, targets]), axis=0)
-        n_electrodes = electrodes.shape[0]
-        n_graphs = 1 if (full == True) else labels.shape[0]
-        n_times = int(data.shape[1] / n_graphs)
+        electrodes = list(set(sources + targets))
+        n_electrodes = len(electrodes)
+        electrode2id = {val: idx for idx, val in enumerate(electrodes)}
+        id2electrode = {val: idx for idx, val in electrode2id.items()}
 
-        node_features = np.zeros((n_electrodes * n_graphs, n_times), dtype=np.float32)
-        for idx in range(n_graphs):
-            for i in range(data.shape[0]):
-                # Convert bipolar wave data to electrode node_features
-                if self.wave_transform == "power":
-                    power = data[i, idx*n_times:(idx+1)*n_times] ** 2
-                    source_idx = np.argwhere((electrodes == sources[i]).all(1)).item()
-                    target_idx = np.argwhere((electrodes == targets[i]).all(1)).item()
-                    node_features[source_idx] += power / 2
-                    node_features[target_idx] += power / 2
-                elif self.wave_transform == "fourier":
-                    # TODO: implementation needed
-                    pass
-                elif self.wave_transform == "wavelet":
-                    # TODO: implementation needed
-                    pass
+        n_graphs = 1
+        n_times = int(data.shape[1] / 1)
 
-        adjecancy_matrix = np.zeros((n_electrodes * n_graphs, n_electrodes * n_graphs), dtype=np.float64)
-        for idx in range(n_graphs):
-            for i in range(n_electrodes):
-                # Cross graph connections (before,after)
-                # TODO: parametric cross connections length
-                for c in range(1, 3):
-                    if idx + c < n_graphs:
-                        adjecancy_matrix[(idx*n_electrodes)+i, ((idx+c)*n_electrodes)+i] = 1
+        node_features = np.zeros((n_electrodes, n_times), dtype=np.float32)
+        for i in range(data.shape[0]):
+            # Convert bipolar wave data to electrode node_features
+            if self.wave_transform == "power":
+                power = data[i, :] ** 2
+                source_idx = electrode2id[sources[i]]
+                target_idx = electrode2id[targets[i]]
+                node_features[source_idx] += power / 2
+                node_features[target_idx] += power / 2
+            elif self.wave_transform == "fourier":
+                # TODO: implementation needed
+                pass
+            elif self.wave_transform == "wavelet":
+                # TODO: implementation needed
+                pass
 
-                # Inter graph connections (const/cluster/dynamic/...)
-                for j in range(n_electrodes):
-                    if self.edge_select == "far":
-                        distance = np.linalg.norm(electrodes[j] - electrodes[i])
-                        adjecancy_matrix[(idx*n_electrodes)+i, (idx*n_electrodes)+j] = 1 if distance > 0.1 else 0
-                    elif self.edge_select == "close":
-                        distance = np.linalg.norm(electrodes[j] - electrodes[i])
-                        adjecancy_matrix[(idx*n_electrodes)+i, (idx*n_electrodes)+j] = 1 if distance < 0.1 else 0
-                    elif self.edge_select == "cluster":
-                        # TODO: implementation needed
-                        pass
-                    elif self.edge_select == "dynamic":
-                        # TODO: implementation needed
-                        pass
+        adjecancy_matrix = np.zeros((n_electrodes, n_electrodes), dtype=np.float64)
+        for i in range(n_electrodes):
+            # Inter graph connections (const/cluster/dynamic/...)
+            for j in range(n_electrodes):
+                data = self.electrode_distances
+                distance = data.loc[(data["from"] == f"EEG {id2electrode[i]}") & (data["to"] == f"EEG {id2electrode[j]}")]
+
+                if len(distance) > 0:
+                    distance = distance.iloc[0]["distance"]
+                    if distance > 0.9:
+                        adjecancy_matrix[i, j] = 1
+
+                # if self.edge_select == "far":
+                #     distance = np.linalg.norm(id2electrode[j] - id2electrode[i])
+                #     adjecancy_matrix[(idx*n_electrodes)+i, (idx*n_electrodes)+j] = 1 if distance > 0.1 else 0
+                # elif self.edge_select == "close":
+                #     distance = np.linalg.norm(electrodes[j] - electrodes[i])
+                #     adjecancy_matrix[(idx*n_electrodes)+i, (idx*n_electrodes)+j] = 1 if distance < 0.1 else 0
+                # elif self.edge_select == "cluster":
+                #     # TODO: implementation needed
+                #     pass
+                # elif self.edge_select == "dynamic":
+                #     # TODO: implementation needed
+                #     pass
 
         return Data(
             x=pt.from_numpy(node_features),
-            y=pt.tensor(labels.max() if (full == True) else labels.reshape(1, -1)),
+            y=pt.tensor(label),
             edge_index=from_scipy_sparse_matrix(sp.sparse.csr_matrix(adjecancy_matrix))[0],
             graph_size=pt.tensor(n_electrodes),
             graph_length=pt.tensor(n_graphs),
         )
 
     def graph2vec(self, item):
-        return self.get_graph(True, item["data"], item["labels"], item["sources"], item["targets"])
-
-    def graph2seq(self, item):
-        return self.get_graph(False, item["data"], item["labels"], item["sources"], item["targets"])
+        return self.get_graph(True, item["data"], item["label"], item["sources"], item["targets"])
 
     @staticmethod
     def add_arguments(parent_parser):
         parser = parent_parser.add_argument_group("CHBMIT")
         parser.add_argument("--batch_size", type=int, default=8)
-        parser.add_argument("--batch_type", type=str, default="tensor2vec", choices=["tensor2vec", "graph2vec", "graph2seq"])
+        parser.add_argument("--batch_type", type=str, default="tensor2vec", choices=["tensor2vec", "graph2vec"])
         parser.add_argument("--edge_select", type=str, default="far", choices=["far", "close", "cluster", "dynamic"])
         parser.add_argument("--wave_transform", type=str, default="power", choices=["power", "fourier", "wavelet"])
         return parent_parser

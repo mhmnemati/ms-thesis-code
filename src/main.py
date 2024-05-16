@@ -3,7 +3,7 @@ import argparse
 import lightning as L
 from lightning.pytorch.loggers import TensorBoardLogger
 
-from models import Deep4Net, EEGInception, Brain2Vec, Brain2Seq
+from models import Deep4Net, EEGInception, Brain2Vec, Brain2Seq, GCNBiGRU
 from data import CHBMIT, SleepEDFX
 
 torch.multiprocessing.set_sharing_strategy("file_system")
@@ -13,6 +13,7 @@ model_classes = {
     "eeginception": EEGInception,
     "brain2vec": Brain2Vec,
     "brain2seq": Brain2Seq,
+    "gcnbigru": GCNBiGRU,
 }
 data_classes = {
     "chb_mit": CHBMIT,
@@ -37,4 +38,4 @@ version = TensorBoardLogger("logs/", name=name)._get_next_version()
 
 for fold in range(args.folds):
     trainer = L.Trainer(max_epochs=args.epochs, logger=TensorBoardLogger("logs/", name=name, version=f"version_{version}/fold_{fold}", default_hp_metric=False))
-    trainer.fit(Model(**vars(args)), datamodule=Data(fold=fold, folds=args.folds, **vars(args)))
+    trainer.fit(Model(**vars(args)), datamodule=Data(fold=fold, **vars(args)))
