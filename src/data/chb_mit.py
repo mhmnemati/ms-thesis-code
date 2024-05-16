@@ -1,3 +1,4 @@
+import random
 import numpy as np
 import scipy as sp
 import torch as pt
@@ -11,6 +12,10 @@ from .base import BaseDataset
 
 
 class CHBMIT(BaseDataset):
+    seed = 100
+    max_seizures = 400
+    normal_seizure_ratio = 4
+
     def __init__(self, fold, folds, **kwargs):
         transform = self.tensor2vec
         data_loader = TensorDataLoader
@@ -33,8 +38,27 @@ class CHBMIT(BaseDataset):
         )
 
     def filters(self, fold, folds):
+        def selection(items):
+            new_items = []
+            for patient in range(1, 25):
+                normals = [item for item in items if f"chb{patient:02b}/normal" in item]
+                random.seed(self.seed)
+                random.shuffle(normals)
+
+                seizures = [item for item in items if f"chb{patient:02b}/seizure" in item]
+                random.seed(self.seed)
+                random.shuffle(seizures)
+
+                seizures = seizures[:max(self.max_seizures, len(seizures))]
+                normals = normals[:self.normal_seizure_ratio*len(seizures)]
+
+                new_items = new_items + seizures + normals
+
+            return new_items
+
         def kfold(items, train):
             patients = np.arange(1, 25)
+            np.random.seed(self.seed)
             np.random.shuffle(patients)
             parts = np.array_split(patients, folds)
 
@@ -57,11 +81,11 @@ class CHBMIT(BaseDataset):
 
                 return False
 
-            return list(filter(my_filter, items))
+            return filter(my_filter, items)
 
         return {
-            "train": lambda items: kfold(items, True),
-            "valid": lambda items: kfold(items, False),
+            "train": lambda items: list(kfold(selection(items), True)),
+            "valid": lambda items: list(kfold(selection(items), False)),
         }
 
     def tensor2vec(self, item):
