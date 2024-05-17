@@ -15,8 +15,6 @@ from .base import BaseDataset
 
 class CHBMIT(BaseDataset):
     seed = 100
-    max_seizures = 400
-    normal_seizure_ratio = 4
     electrode_distances = pd.read_csv(f"{os.path.dirname(__file__)}/distances_3d.csv")
 
     def __init__(self, fold, folds, **kwargs):
@@ -33,7 +31,7 @@ class CHBMIT(BaseDataset):
         self.wave_transform = kwargs["wave_transform"]
 
         super().__init__(
-            name="chb_mit_transformed",
+            name="chb_mit_window_1",
             filters=self.filters(fold, folds),
             transform=transform,
             data_loader=data_loader,
@@ -42,6 +40,9 @@ class CHBMIT(BaseDataset):
 
     def filters(self, fold, folds):
         def kfold(items, train):
+            np.random.seed(self.seed)
+            np.random.shuffle(items)
+
             patients = np.arange(1, 25)
             np.random.seed(self.seed)
             np.random.shuffle(patients)
@@ -74,9 +75,9 @@ class CHBMIT(BaseDataset):
         }
 
     def tensor2vec(self, item):
-        return (item["data"], item["label"])
+        return (item["data"], item["labels"].max())
 
-    def get_graph(self, full, data, label, sources, targets):
+    def get_graph(self, full, data, labels, sources, targets):
         # electrodes        (21, 3)
 
         # node_feature      (21, 3000)
@@ -92,8 +93,8 @@ class CHBMIT(BaseDataset):
         electrode2id = {val: idx for idx, val in enumerate(electrodes)}
         id2electrode = {val: idx for idx, val in electrode2id.items()}
 
-        n_graphs = 1
-        n_times = int(data.shape[1] / 1)
+        n_graphs = 1 if (full == True) else labels.shape[0]
+        n_times = int(data.shape[1] / n_graphs)
 
         node_features = np.zeros((n_electrodes, n_times), dtype=np.float32)
         for i in range(data.shape[0]):
@@ -138,14 +139,14 @@ class CHBMIT(BaseDataset):
 
         return Data(
             x=pt.from_numpy(node_features),
-            y=pt.tensor(label),
+            y=pt.tensor(labels.max() if (full == True) else labels.reshape(1, -1)),
             edge_index=from_scipy_sparse_matrix(sp.sparse.csr_matrix(adjecancy_matrix))[0],
             graph_size=pt.tensor(n_electrodes),
             graph_length=pt.tensor(n_graphs),
         )
 
     def graph2vec(self, item):
-        return self.get_graph(True, item["data"], item["label"], item["sources"], item["targets"])
+        return self.get_graph(True, item["data"], item["labels"], item["sources"], item["targets"])
 
     @staticmethod
     def add_arguments(parent_parser):

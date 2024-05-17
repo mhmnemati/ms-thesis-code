@@ -146,13 +146,13 @@ class Generator:
     def get_montage(self, raw, positions):
         picks = mne.pick_types(raw.info, eeg=True)
 
-        sources = np.zeros((len(picks), 3), dtype=np.float32)
-        targets = np.zeros((len(picks), 3), dtype=np.float32)
+        sources = []
+        targets = []
         for idx, pick in enumerate(picks):
             channel = raw.info["ch_names"][pick]
             electrodes = channel.upper().split("-")
-            sources[idx] = positions[electrodes[0]]
-            targets[idx] = positions[electrodes[1]]
+            sources.append(electrodes[0])
+            targets.append(electrodes[1])
 
         return sources, targets, picks
 
