@@ -2,7 +2,6 @@ import os
 import mne
 import wfdb
 import glob
-import random
 import numpy as np
 import torch as pt
 
@@ -104,9 +103,9 @@ for patient_path in patient_paths:
             }
 
             if patient_seizures < 400 and item["label"] == 1:
-                low += 1/2
+                low += window/2
             else:
-                low += 1
+                low += window
 
             if item["label"] == 0:
                 x += 1
