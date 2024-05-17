@@ -1,7 +1,6 @@
 import mne
 import wfdb
 import glob
-import random
 import numpy as np
 
 from base import build
@@ -14,6 +13,8 @@ class Generator:
         "normal",
         "seizure"
     ]
+
+    random_seed = 100
 
     hparams = [
         {"window": 1},
@@ -37,57 +38,95 @@ class Generator:
         }
 
     def get_items(self, records, annotations, positions):
-        seizures = {}
+        patients = {}
         for record in records:
             name = record.split("/")[-2]
-            raw = mne.io.read_raw_edf(record, infer_types=True, include=[
-                "FP1-F7", "F7-T7", "T7-P7", "P7-O1", "FP1-F3", "F3-C3", "C3-P3", "P3-O1",
-                "FP2-F4", "F4-C4", "C4-P4", "P4-O2", "FP2-F8", "F8-T8", "T8-P8", "P8-O2",
-                "FZ-CZ", "CZ-PZ", "P7-T7", "T7-FT9", "FT9-FT10", "FT10-T8"
-            ])
-            if len(raw.ch_names) <= 0:
-                continue
+            if name not in patients:
+                patients[name] = []
 
-            labels, _, _ = self.get_labels(raw, annotations)
-            seconds = np.count_nonzero(labels == 1)
-            seizures[name] = seizures[name] + seconds if (name in seizures) else seconds
+            patients[name].append(record)
 
-        for record in records:
-            name = record.split("/")[-2]
-            raw = mne.io.read_raw_edf(record, infer_types=True, include=[
-                "FP1-F7", "F7-T7", "T7-P7", "P7-O1", "FP1-F3", "F3-C3", "C3-P3", "P3-O1",
-                "FP2-F4", "F4-C4", "C4-P4", "P4-O2", "FP2-F8", "F8-T8", "T8-P8", "P8-O2",
-                "FZ-CZ", "CZ-PZ", "P7-T7", "T7-FT9", "FT9-FT10", "FT10-T8"
-            ])
-            if len(raw.ch_names) <= 0:
-                continue
+        for patient, records in patients.items():
+            normals = []
+            seizures = []
+            for idx, record in enumerate(records):
+                raw = mne.io.read_raw_edf(record, infer_types=True, include=[
+                    "FP1-F7", "F7-T7", "T7-P7", "P7-O1", "FP1-F3", "F3-C3", "C3-P3", "P3-O1",
+                    "FP2-F4", "F4-C4", "C4-P4", "P4-O2", "FP2-F8", "F8-T8", "T8-P8", "P8-O2",
+                    "FZ-CZ", "CZ-PZ", "P7-T7", "T7-FT9", "FT9-FT10", "FT10-T8"
+                ])
+                if len(raw.ch_names) <= 0:
+                    continue
 
-            labels, tmin, tmax = self.get_labels(raw, annotations)
-            sources, targets, picks = self.get_montage(raw, positions)
+                labels, _, _ = self.get_labels(raw, annotations)
 
-            # TODO: resample raw to self.sfreq
-            data = raw.get_data(tmin=tmin, tmax=tmax, picks=picks).astype(np.float32)
+                for label_idx in np.where(labels == 0)[0]:
+                    normals.append([idx, label_idx])
+                for label_idx in np.where(labels == 1)[0]:
+                    seizures.append([idx, label_idx])
 
-            low = 0
-            while True:
-                high = low + self.window
-                sfreq = raw.info["sfreq"]
-                if high >= len(labels):
-                    break
+            normals = np.array(normals)
+            seizures = np.array(seizures)
 
-                _labels = labels[int(low):int(high)]
+            np.random.seed(self.random_seed)
+            selects = np.random.choice(normals.shape[0], seizures.shape[0] * 4)
 
-                yield f"{name}/{self.labels[_labels.max()]}", {
-                    "data": data[:, int(low*sfreq):int(high*sfreq)],
-                    "labels": _labels,
-                    "sources": sources,
-                    "targets": targets,
-                }
+            normals = normals[selects]
 
-                if seizures[name] < 400 and _labels.max() == 1:
-                    low += self.window/2
-                else:
-                    low += self.window
+            normal_selections = {}
+            for idx, label_idx in normals:
+                if idx not in normal_selections:
+                    normal_selections[idx] = []
+
+                normal_selections[idx].append(label_idx)
+
+            seizure_selections = {}
+            for idx, label_idx in seizures:
+                if idx not in seizure_selections:
+                    seizure_selections[idx] = []
+
+                seizure_selections[idx].append(label_idx)
+
+            for idx, record in enumerate(records):
+                raw = mne.io.read_raw_edf(record, infer_types=True, include=[
+                    "FP1-F7", "F7-T7", "T7-P7", "P7-O1", "FP1-F3", "F3-C3", "C3-P3", "P3-O1",
+                    "FP2-F4", "F4-C4", "C4-P4", "P4-O2", "FP2-F8", "F8-T8", "T8-P8", "P8-O2",
+                    "FZ-CZ", "CZ-PZ", "P7-T7", "T7-FT9", "FT9-FT10", "FT10-T8"
+                ])
+                if len(raw.ch_names) <= 0:
+                    continue
+
+                labels, tmin, tmax = self.get_labels(raw, annotations)
+                sources, targets, picks = self.get_montage(raw, positions)
+
+                # TODO: resample raw to self.sfreq
+                data = raw.get_data(tmin=tmin, tmax=tmax, picks=picks).astype(np.float32)
+
+                for low in normal_selections[idx]:
+                    high = low + self.window
+                    sfreq = raw.info["sfreq"]
+
+                    _labels = labels[int(low):int(high)]
+
+                    yield f"{patient}/{self.labels[_labels.max()]}", {
+                        "data": data[:, int(low*sfreq):int(high*sfreq)],
+                        "labels": _labels,
+                        "sources": sources,
+                        "targets": targets,
+                    }
+
+                for low in seizure_selections[idx]:
+                    high = low + self.window
+                    sfreq = raw.info["sfreq"]
+
+                    _labels = labels[int(low):int(high)]
+
+                    yield f"{patient}/{self.labels[_labels.max()]}", {
+                        "data": data[:, int(low*sfreq):int(high*sfreq)],
+                        "labels": _labels,
+                        "sources": sources,
+                        "targets": targets,
+                    }
 
     def get_labels(self, raw, annotations):
         seconds = int(raw.n_times / raw.info["sfreq"])

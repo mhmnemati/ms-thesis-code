@@ -41,24 +41,6 @@ class CHBMIT(BaseDataset):
         )
 
     def filters(self, fold, folds):
-        def selection(items):
-            new_items = []
-            for patient in range(1, 25):
-                normals = [item for item in items if f"chb{patient:02b}/normal" in item]
-                random.seed(self.seed)
-                random.shuffle(normals)
-
-                seizures = [item for item in items if f"chb{patient:02b}/seizure" in item]
-                random.seed(self.seed)
-                random.shuffle(seizures)
-
-                seizures = seizures[:max(self.max_seizures, len(seizures))]
-                normals = normals[:self.normal_seizure_ratio*len(seizures)]
-
-                new_items = new_items + seizures + normals
-
-            return new_items
-
         def kfold(items, train):
             patients = np.arange(1, 25)
             np.random.seed(self.seed)
@@ -87,8 +69,8 @@ class CHBMIT(BaseDataset):
             return filter(my_filter, items)
 
         return {
-            "train": lambda items: list(kfold(selection(items), True)),
-            "valid": lambda items: list(kfold(selection(items), False)),
+            "train": lambda items: list(kfold(items, True)),
+            "valid": lambda items: list(kfold(items, False)),
         }
 
     def tensor2vec(self, item):
