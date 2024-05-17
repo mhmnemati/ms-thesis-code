@@ -66,7 +66,7 @@ class Generator:
             sources, targets, picks = self.get_montage(raw, positions)
 
             # TODO: resample raw to self.sfreq
-            data = raw.get_data(tmin=tmin, tmax=tmax, picks=picks).astype(np.flat32)
+            data = raw.get_data(tmin=tmin, tmax=tmax, picks=picks).astype(np.float32)
 
             low = 0
             while True:
