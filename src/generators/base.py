@@ -1,5 +1,4 @@
 import os
-import itertools
 import functools
 
 from torch import save
@@ -17,5 +16,12 @@ def build(Generator):
             path = f"{root}{hparams}/{key}"
             os.makedirs(path, exist_ok=True)
 
-            for idx, item in enumerate(records):
-                save(item, f"{path}/{idx}.pt")
+            counters = {}
+            for subpath, item in records:
+                if subpath not in counters:
+                    os.makedirs(f"{path}/{subpath}", exist_ok=True)
+                    counters[subpath] = 0
+
+                counters[subpath] += 1
+
+                save(item, f"{path}/{subpath}/{counters[subpath]}.pt")
