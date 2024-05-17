@@ -115,18 +115,19 @@ class Generator:
                         "targets": targets,
                     }
 
-                for low in seizure_selections[idx]:
-                    high = low + self.window
-                    sfreq = raw.info["sfreq"]
+                if idx in seizure_selections:
+                    for low in seizure_selections[idx]:
+                        high = low + self.window
+                        sfreq = raw.info["sfreq"]
 
-                    _labels = labels[int(low):int(high)]
+                        _labels = labels[int(low):int(high)]
 
-                    yield f"{patient}/{self.labels[_labels.max()]}", {
-                        "data": data[:, int(low*sfreq):int(high*sfreq)],
-                        "labels": _labels,
-                        "sources": sources,
-                        "targets": targets,
-                    }
+                        yield f"{patient}/{self.labels[_labels.max()]}", {
+                            "data": data[:, int(low*sfreq):int(high*sfreq)],
+                            "labels": _labels,
+                            "sources": sources,
+                            "targets": targets,
+                        }
 
     def get_labels(self, raw, annotations):
         seconds = int(raw.n_times / raw.info["sfreq"])
