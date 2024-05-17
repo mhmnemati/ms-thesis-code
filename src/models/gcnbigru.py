@@ -24,7 +24,7 @@ class Model(T.Module):
             (T.GRU(input_size=int(n_times/8), hidden_size=128, num_layers=3, bidirectional=True, dropout=0.3), "x -> x, h"),
 
             (T.Linear(in_features=256, out_features=n_outputs), "x -> x"),
-            (T.LogSoftmax(dim=1), "x -> x")
+            (T.Sigmoid(), "x -> x"),
         ])
 
     def forward(self, *args):
@@ -38,12 +38,12 @@ class GCNBiGRU(BaseModel):
             num_classes=hparams["n_outputs"],
             hparams=hparams,
             model=Model(**hparams),
-            loss=F.cross_entropy
+            loss=F.binary_cross_entropy
         )
 
     @staticmethod
     def add_arguments(parent_parser):
         parser = parent_parser.add_argument_group("GCNBiGRU")
         parser.add_argument("--n_times", type=int, default=256)
-        parser.add_argument("--n_outputs", type=int, default=2)
+        parser.add_argument("--n_outputs", type=int, default=1)
         return parent_parser

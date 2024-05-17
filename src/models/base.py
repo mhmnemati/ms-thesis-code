@@ -13,23 +13,32 @@ class BaseModel(L.LightningModule):
         self.model = model
         self.loss = loss
 
-        metrics = M.MetricCollection({
-            "f1": M.F1Score(task="multiclass", num_classes=num_classes),
-            "recall": M.Recall(task="multiclass", num_classes=num_classes),
-            "accuracy": M.Accuracy(task="multiclass", num_classes=num_classes),
-            "precision": M.Precision(task="multiclass", num_classes=num_classes),
-        })
+        if num_classes > 1:
+            self.confusion_matrix = M.ConfusionMatrix(task="multiclass", num_classes=num_classes)
+            self.metrics = M.MetricCollection({
+                "f1": M.F1Score(task="multiclass", num_classes=num_classes),
+                "recall": M.Recall(task="multiclass", num_classes=num_classes),
+                "accuracy": M.Accuracy(task="multiclass", num_classes=num_classes),
+                "precision": M.Precision(task="multiclass", num_classes=num_classes),
+            })
+        else:
+            self.confusion_matrix = M.ConfusionMatrix(task="binary")
+            self.metrics = M.MetricCollection({
+                "f1": M.F1Score(task="binary"),
+                "recall": M.Recall(task="binary"),
+                "accuracy": M.Accuracy(task="binary"),
+                "precision": M.Precision(task="binary"),
+            })
 
-        self.training_metrics = metrics.clone(prefix="training/")
-        self.validation_metrics = metrics.clone(prefix="validation/")
-        self.validation_matrix = M.ConfusionMatrix(task="multiclass", num_classes=num_classes)
+        self.training_metrics = self.metrics.clone(prefix="training/")
+        self.validation_metrics = self.metrics.clone(prefix="validation/")
 
     def forward(self, *args):
         return self.model(*args)
 
     def configure_optimizers(self):
-        optimizer = pt.optim.Adam(self.parameters(), lr=1e-1)
-        scheduler = pt.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
+        optimizer = pt.optim.Adam(self.parameters(), lr=2e-4)
+        scheduler = pt.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
         return [optimizer], [scheduler]
 
     def on_train_start(self):
@@ -51,8 +60,15 @@ class BaseModel(L.LightningModule):
             y = batch[1]
 
         pred = self.model(*args)
+
+        if pred.shape[-1] == 1:
+            pred = pred.view(-1)
+            y = y.float()
+
         loss = self.loss(pred, y)
-        pred = pred.argmax(-1)
+
+        if len(pred.shape) > 1:
+            pred = pred.argmax(-1)
 
         return (batch_size, loss, pred, y)
 
@@ -70,9 +86,9 @@ class BaseModel(L.LightningModule):
         self.log("validation/loss", loss, batch_size=batch_size)
         self.log_dict(self.validation_metrics(pred, y), batch_size=batch_size)
 
-        self.validation_matrix.update(pred, y)
+        self.confusion_matrix.update(pred, y)
 
     def on_validation_epoch_end(self):
-        fig, _ = self.validation_matrix.plot()
-        self.logger.experiment.add_figure("validation_matrix", fig, self.current_epoch)
-        self.validation_matrix.reset()
+        fig, _ = self.confusion_matrix.plot()
+        self.logger.experiment.add_figure("confusion_matrix", fig, self.current_epoch)
+        self.confusion_matrix.reset()
