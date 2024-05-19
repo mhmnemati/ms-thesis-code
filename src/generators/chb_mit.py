@@ -8,13 +8,12 @@ from base import build
 
 class Generator:
     url = "https://physionet.org/static/published-projects/chbmit/chb-mit-scalp-eeg-database-1.0.0.zip"
+    seed = 100
     name = "chb_mit"
     labels = [
         "normal",
         "seizure"
     ]
-
-    random_seed = 100
 
     hparams = [
         {"window": 1},
@@ -68,7 +67,7 @@ class Generator:
             normals = np.array(normals)
             seizures = np.array(seizures)
 
-            np.random.seed(self.random_seed)
+            np.random.seed(self.seed)
             selects = np.random.choice(normals.shape[0], seizures.shape[0] * 4)
 
             normals = normals[selects]

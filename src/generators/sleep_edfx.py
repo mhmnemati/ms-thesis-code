@@ -1,6 +1,5 @@
 import mne
 import glob
-import random
 import numpy as np
 
 from base import build
@@ -77,7 +76,6 @@ class Generator:
             sorted(glob.glob(f"{path}/**/*-Hypnogram.edf", recursive=True))
         ))
         records = list(filter(lambda x: x[0].split("/")[-1] in self.sleep_edf_20, records))
-        random.shuffle(records)
 
         montage = mne.channels.make_standard_montage("standard_1020")
         positions = {

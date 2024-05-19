@@ -1,5 +1,5 @@
 import os
-import random
+import pywt
 import numpy as np
 import scipy as sp
 import torch as pt
@@ -106,8 +106,11 @@ class CHBMIT(BaseDataset):
                 node_features[source_idx] += power / 2
                 node_features[target_idx] += power / 2
             elif self.wave_transform == "fourier":
-                # TODO: implementation needed
-                pass
+                power = np.abs(np.fft.fft(data)) ** 2
+                source_idx = electrode2id[sources[i]]
+                target_idx = electrode2id[targets[i]]
+                node_features[source_idx] += power / 2
+                node_features[target_idx] += power / 2
             elif self.wave_transform == "wavelet":
                 # TODO: implementation needed
                 pass
