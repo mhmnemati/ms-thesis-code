@@ -55,7 +55,7 @@ class CHBMIT(BaseDataset):
 
             patients = np.concatenate(parts[:self.k] + parts[self.k+1:]) if stage == "train" else parts[self.k]
 
-            return filter(lambda item: any([f"chb{p:02d}" in item for p in patients]), items)
+            return list(filter(lambda item: any([f"chb{p:02d}" in item for p in patients]), items))
 
         return select
 
