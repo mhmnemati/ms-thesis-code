@@ -7,21 +7,21 @@ from base import build
 
 class Generator:
     url = "https://www.physionet.org/static/published-projects/sleep-edfx/sleep-edf-database-expanded-1.0.0.zip"
+    seed = 100
     name = "sleep_edfx"
-    sfreq = 100
-    labels = [
-        "Sleep stage W",
-        "Sleep stage 1",
-        "Sleep stage 2",
-        "Sleep stage 3",
-        "Sleep stage 4",
-        "Sleep stage R"
-    ]
+    label2id = {
+        "Sleep stage W": 0,
+        "Sleep stage 1": 1,
+        "Sleep stage 2": 2,
+        "Sleep stage 3": 3,
+        "Sleep stage 4": 3,
+        "Sleep stage R": 4,
+    }
 
     hparams = [
         {"window": 30, "overlap": 0},
-        {"window": 30, "overlap": 1},
-        {"window": 30, "overlap": 5},
+        # {"window": 30, "overlap": 1},
+        # {"window": 30, "overlap": 5},
     ]
 
     sleep_edf_20 = [
@@ -84,44 +84,50 @@ class Generator:
         }
 
         return {
-            "train": self.get_items(records[slice(int(len(records) * 0.0), int(len(records) * 0.8))], positions),
-            "valid": self.get_items(records[slice(int(len(records) * 0.8), int(len(records) * 1.0))], positions),
+            "train": self.get_items(records, positions),
         }
 
     def get_items(self, records, positions):
+        patients = {}
         for record in records:
-            raw = mne.io.read_raw_edf(record[0], infer_types=True, exclude=["Event marker", "Marker"])
-            annotations = mne.read_annotations(record[1])
+            name = record[0].split("/")[-1][:5]
+            if name not in patients:
+                patients[name] = []
 
-            labels, tmin, tmax = self.get_labels(raw, annotations)
-            sources, targets, picks = self.get_montage(raw, positions)
+            patients[name].append(record)
 
-            # TODO: resample raw to self.sfreq
-            data = raw.get_data(tmin=tmin, tmax=tmax, picks=picks).astype(np.float32)
+        for patient, records in patients.items():
+            for idx, record in enumerate(records):
+                raw = mne.io.read_raw_edf(record[0], infer_types=True, exclude=["Event marker", "Marker"])
+                annotation = mne.read_annotations(record[1])
 
-            for low in range(0, len(labels), self.window - self.overlap):
-                high = low + self.window
-                if high > len(labels):
-                    break
+                labels, tmin, tmax = self.get_labels(raw, annotation)
+                ch_names, picks = self.get_montage(raw, positions)
 
-                yield {
-                    "data": data[:, low*self.sfreq:high*self.sfreq],
-                    "labels": labels[low:high],
-                    "sources": sources,
-                    "targets": targets,
-                }
+                data = raw.get_data(tmin=tmin, tmax=tmax, picks=picks).astype(np.float32)
 
-    def get_labels(self, raw, annotations, crop_wake_mins=30):
-        seconds = int(raw.n_times / self.sfreq)
+                for low in range(0, len(labels), self.window - self.overlap):
+                    high = low + self.window
+                    sfreq = raw.info["sfreq"]
+                    if high >= len(labels):
+                        break
+
+                    yield f"{patient}", {
+                        "data": data[:, int(low*sfreq):int(high*sfreq)],
+                        "labels": labels[low:high],
+                        "ch_names": ch_names,
+                    }
+
+    def get_labels(self, raw, annotation, crop_wake_mins=30):
+        seconds = int(raw.n_times / raw.info["sfreq"])
         labels = np.zeros(seconds, dtype=np.int64)
 
-        for item in annotations:
+        for item in annotation:
             onset = int(item["onset"])
             duration = int(item["duration"])
             labels[onset:onset+duration] = (
-                self.labels.index(item["description"])
-                if item["description"] in self.labels else
-                0
+                self.label2id[item["description"]]
+                if item["description"] in self.label2id else 0
             )
 
         non_zeros = np.nonzero(labels)
@@ -131,17 +137,15 @@ class Generator:
         return labels[tmin:tmax], tmin, tmax
 
     def get_montage(self, raw, positions):
-        picks = mne.pick_types(raw.info, eeg=True)
+        picks_eeg = list(mne.pick_types(raw.info, eeg=True))
+        picks_eog = list(mne.pick_types(raw.info, eog=True))
+        picks_emg = list(mne.pick_types(raw.info, emg=True))
 
-        sources = np.zeros((len(picks), 3), dtype=np.float32)
-        targets = np.zeros((len(picks), 3), dtype=np.float32)
-        for idx, pick in enumerate(picks):
-            channel = raw.info["ch_names"][pick]
-            electrodes = channel.upper().split("-")
-            sources[idx] = positions[electrodes[0]]
-            targets[idx] = positions[electrodes[1]]
+        names_eeg = [f"EEG {raw.info['ch_names'][p]}" for p in picks_eeg]
+        names_eog = [f"EOG {raw.info['ch_names'][p]}" for p in picks_eog]
+        names_emg = [f"EMG {raw.info['ch_names'][p]}" for p in picks_emg]
 
-        return sources, targets, picks
+        return (names_eeg + names_eog + names_emg), (picks_eeg + picks_eog + picks_emg)
 
 
 build(Generator)

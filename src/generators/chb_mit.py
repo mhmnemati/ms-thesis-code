@@ -98,7 +98,6 @@ class Generator:
                 labels, tmin, tmax = self.get_labels(raw, annotations)
                 sources, targets, picks = self.get_montage(raw, positions)
 
-                # TODO: resample raw to self.sfreq
                 data = raw.get_data(tmin=tmin, tmax=tmax, picks=picks).astype(np.float32)
 
                 for low in normal_selections[idx]:
