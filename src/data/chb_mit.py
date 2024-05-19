@@ -17,7 +17,7 @@ class CHBMIT(BaseDataset):
     seed = 100
     electrode_distances = pd.read_csv(f"{os.path.dirname(__file__)}/distances_3d.csv")
 
-    def __init__(self, fold, folds, **kwargs):
+    def __init__(self, **kwargs):
         transform = self.tensor2vec
         data_loader = TensorDataLoader
         if kwargs["batch_type"] == "graph2vec":
@@ -27,52 +27,37 @@ class CHBMIT(BaseDataset):
             transform = self.graph2seq
             data_loader = GraphDataLoader
 
+        self.k = kwargs["k"]
+        self.folds = kwargs["folds"]
         self.edge_select = kwargs["edge_select"]
         self.wave_transform = kwargs["wave_transform"]
 
         super().__init__(
             name="chb_mit_window_1",
-            filters=self.filters(fold, folds),
+            filters=self.filters,
             transform=transform,
             data_loader=data_loader,
             batch_size=kwargs["batch_size"],
         )
 
-    def filters(self, fold, folds):
-        def kfold(items, train):
+    def filters(self, stage):
+        def select(items):
             np.random.seed(self.seed)
             np.random.shuffle(items)
 
-            patients = np.arange(1, 25)
+            if stage in ["test", "predict"]:
+                return items
+
+            all_patients = np.arange(1, 25)
             np.random.seed(self.seed)
-            np.random.shuffle(patients)
-            parts = np.array_split(patients, folds)
+            np.random.shuffle(all_patients)
+            parts = np.array_split(all_patients, self.folds)
 
-            valid_patients = parts[fold]
-            train_patients = np.array([p for p in patients if p not in valid_patients])
+            patients = np.concatenate(parts[:self.k] + parts[self.k+1:]) if stage == "train" else parts[self.k]
 
-            if folds == 1:
-                temp = train_patients
-                train_patients = valid_patients
-                valid_patients = temp
+            return filter(lambda item: any([f"chb{p:02d}" in item for p in patients]), items)
 
-            def my_filter(x):
-                patients = valid_patients
-                if train:
-                    patients = train_patients
-
-                for i in patients:
-                    if f"chb{i:02d}" in x:
-                        return True
-
-                return False
-
-            return filter(my_filter, items)
-
-        return {
-            "train": lambda items: list(kfold(items, True)),
-            "valid": lambda items: list(kfold(items, False)),
-        }
+        return select
 
     def tensor2vec(self, item):
         return (item["data"], item["labels"].max())
@@ -100,7 +85,7 @@ class CHBMIT(BaseDataset):
         for i in range(data.shape[0]):
             # Convert bipolar wave data to electrode node_features
             power = data[i, :] ** 2
-            
+
             if self.wave_transform == "power":
                 power = data[i, :] ** 2
             elif self.wave_transform == "fourier":
@@ -155,6 +140,8 @@ class CHBMIT(BaseDataset):
     @staticmethod
     def add_arguments(parent_parser):
         parser = parent_parser.add_argument_group("CHBMIT")
+        parser.add_argument("--k", type=int, default=1)
+        parser.add_argument("--folds", type=int, default=5)
         parser.add_argument("--batch_size", type=int, default=8)
         parser.add_argument("--batch_type", type=str, default="tensor2vec", choices=["tensor2vec", "graph2vec"])
         parser.add_argument("--edge_select", type=str, default="far", choices=["far", "close", "cluster", "dynamic"])

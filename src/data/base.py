@@ -33,14 +33,14 @@ class BaseDataset(LightningDataModule):
 
     def setup(self, stage):
         if stage == "fit":
-            self.trainset = TensorDataset(f"{self.root}/train", filter=self.filters["train"], transform=self.transform)
-            self.validset = TensorDataset(f"{self.root}/train", filter=self.filters["valid"], transform=self.transform)
+            self.trainset = TensorDataset(f"{self.root}/train", filter=self.filters("train"), transform=self.transform)
+            self.validset = TensorDataset(f"{self.root}/train", filter=self.filters("valid"), transform=self.transform)
 
         if stage == "test":
-            self.testset = TensorDataset(f"{self.root}/test", filter=self.filters["test"], transform=self.transform)
+            self.testset = TensorDataset(f"{self.root}/test", filter=self.filters("test"), transform=self.transform)
 
         if stage == "predict":
-            self.predictset = TensorDataset(f"{self.root}/predict", filter=self.filters["predict"], transform=self.transform)
+            self.predictset = TensorDataset(f"{self.root}/predict", filter=self.filters("predict"), transform=self.transform)
 
     def train_dataloader(self):
         return self.data_loader(self.trainset, batch_size=self.batch_size, num_workers=int(self.batch_size/2))

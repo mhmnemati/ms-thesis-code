@@ -21,8 +21,8 @@ data_classes = {
 }
 
 parser = argparse.ArgumentParser(description="Train model on data.")
+parser.add_argument("-v", "--version", type=str, default=None)
 parser.add_argument("-e", "--epochs", type=int, default=10)
-parser.add_argument("-f", "--folds", type=int, default=5)
 parser.add_argument("-m", "--model", type=str, default=list(model_classes.keys())[0], choices=list(model_classes.keys()))
 parser.add_argument("-d", "--data", type=str, default=list(data_classes.keys())[0], choices=list(data_classes.keys()))
 
@@ -33,9 +33,6 @@ parser = Model.add_arguments(parser)
 parser = Data.add_arguments(parser)
 
 args = parser.parse_args()
-name = f"{args.model}/{args.data}"
-version = TensorBoardLogger("logs/", name=name)._get_next_version()
 
-for fold in range(args.folds):
-    trainer = L.Trainer(max_epochs=args.epochs, logger=TensorBoardLogger("logs/", name=name, version=f"version_{version}/fold_{fold}", default_hp_metric=False))
-    trainer.fit(Model(**vars(args)), datamodule=Data(fold=fold, **vars(args)))
+trainer = L.Trainer(max_epochs=args.epochs, logger=TensorBoardLogger("logs/", name=f"{args.model}/{args.data}", version=args.version, default_hp_metric=False))
+trainer.fit(Model(**vars(args)), datamodule=Data(**vars(args)))
