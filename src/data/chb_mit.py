@@ -38,6 +38,7 @@ class CHBMIT(BaseDataset):
             transform=transform,
             data_loader=data_loader,
             batch_size=kwargs["batch_size"],
+            num_workers=kwargs["num_workers"],
         )
 
     def filters(self, stage):
