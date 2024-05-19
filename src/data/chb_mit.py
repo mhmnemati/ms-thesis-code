@@ -99,21 +99,22 @@ class CHBMIT(BaseDataset):
         node_features = np.zeros((n_electrodes, n_times), dtype=np.float32)
         for i in range(data.shape[0]):
             # Convert bipolar wave data to electrode node_features
+            power = data[i, :] ** 2
+            
             if self.wave_transform == "power":
                 power = data[i, :] ** 2
-                source_idx = electrode2id[sources[i]]
-                target_idx = electrode2id[targets[i]]
-                node_features[source_idx] += power / 2
-                node_features[target_idx] += power / 2
             elif self.wave_transform == "fourier":
-                power = np.abs(np.fft.fft(data)) ** 2
-                source_idx = electrode2id[sources[i]]
-                target_idx = electrode2id[targets[i]]
-                node_features[source_idx] += power / 2
-                node_features[target_idx] += power / 2
+                power = np.abs(np.fft.fft(data[i, :])) ** 2
             elif self.wave_transform == "wavelet":
-                # TODO: implementation needed
-                pass
+                coeffs = pywt.wavedec(data[i, :], "db4", level=5)
+                coeffs[-1] = np.zeros_like(coeffs[-1])
+                coeffs[-2] = np.zeros_like(coeffs[-2])
+                power = pywt.waverec(coeffs, "db4") ** 2
+
+            source_idx = electrode2id[sources[i]]
+            target_idx = electrode2id[targets[i]]
+            node_features[source_idx] += power / 2
+            node_features[target_idx] += power / 2
 
         adjecancy_matrix = np.zeros((n_electrodes, n_electrodes), dtype=np.float64)
         for i in range(n_electrodes):
