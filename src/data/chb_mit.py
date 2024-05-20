@@ -37,8 +37,8 @@ class CHBMIT(BaseDataset):
             filters=self.filters,
             transform=transform,
             data_loader=data_loader,
-            batch_size=kwargs["batch_size"],
             num_workers=kwargs["num_workers"],
+            batch_size=kwargs["batch_size"],
         )
 
     def filters(self, stage):
@@ -143,8 +143,8 @@ class CHBMIT(BaseDataset):
         parser = parent_parser.add_argument_group("CHBMIT")
         parser.add_argument("--k", type=int, default=1)
         parser.add_argument("--folds", type=int, default=5)
-        parser.add_argument("--batch_size", type=int, default=8)
         parser.add_argument("--num_workers", type=int, default=2)
+        parser.add_argument("--batch_size", type=int, default=8)
         parser.add_argument("--batch_type", type=str, default="tensor2vec", choices=["tensor2vec", "graph2vec"])
         parser.add_argument("--edge_select", type=str, default="far", choices=["far", "close", "cluster", "dynamic"])
         parser.add_argument("--wave_transform", type=str, default="power", choices=["power", "fourier", "wavelet"])

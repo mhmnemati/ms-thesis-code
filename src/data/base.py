@@ -23,14 +23,14 @@ class TensorDataset(Dataset):
 
 
 class BaseDataset(LightningDataModule):
-    def __init__(self, name, filters, transform, data_loader, batch_size, num_workers):
+    def __init__(self, name, filters, transform, data_loader, num_workers, batch_size):
         super().__init__()
         self.root = f"~/pytorch_datasets/{name}"
         self.filters = filters
         self.transform = transform
         self.data_loader = data_loader
-        self.batch_size = batch_size
         self.num_workers = num_workers
+        self.batch_size = batch_size
 
     def setup(self, stage):
         if stage == "fit":
@@ -44,13 +44,13 @@ class BaseDataset(LightningDataModule):
             self.predictset = TensorDataset(f"{self.root}/predict", filter=self.filters("predict"), transform=self.transform)
 
     def train_dataloader(self):
-        return self.data_loader(self.trainset, batch_size=self.batch_size, num_workers=self.num_workers)
+        return self.data_loader(self.trainset, num_workers=self.num_workers, batch_size=self.batch_size)
 
     def val_dataloader(self):
-        return self.data_loader(self.validset, batch_size=self.batch_size, num_workers=self.num_workers)
+        return self.data_loader(self.validset, num_workers=self.num_workers, batch_size=self.batch_size)
 
     def test_dataloader(self):
-        return self.data_loader(self.testset, batch_size=self.batch_size, num_workers=self.num_workers)
+        return self.data_loader(self.testset, num_workers=self.num_workers, batch_size=self.batch_size)
 
     def predict_dataloader(self):
-        return self.data_loader(self.predictset, batch_size=self.batch_size, num_workers=self.num_workers)
+        return self.data_loader(self.predictset, num_workers=self.num_workers, batch_size=self.batch_size)
