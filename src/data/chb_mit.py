@@ -64,21 +64,13 @@ class CHBMIT(BaseDataset):
         return (item["data"], item["labels"].max())
 
     def get_graph(self, full, data, labels, sources, targets, ch_names):
-        # electrodes        (21, 3)
+        source_names = [name.replace("EEG ", "").split("-")[0] for name in ch_names]
+        target_names = [name.replace("EEG ", "").split("-")[1] for name in ch_names]
 
-        # node_feature      (21, 3000)
-        # adjacency_matrix  (21, 21)
-        # y                 (1)
-
-        # node_feature      (21*30, 3000/30)
-        # adjacency_matrix  (21*30, 21*30)
-        # y                 (30)
-
-        source_names = [name.split("-")[0] for name in ch_names]
-        target_names = [name.split("-")[1] for name in ch_names]
-
-        electrodes = np.unique(np.concatenate([sources, targets]), axis=0)
-        n_electrodes = electrodes.shape[0]
+        electrode_positions = np.concatenate([sources, targets])
+        electrode_names = (source_names + target_names)
+        electrodes = list(set(electrode_names))
+        n_electrodes = len(electrodes)
         n_graphs = 1 if (full == True) else labels.shape[0]
         n_times = int(data.shape[1] / n_graphs)
 
@@ -98,10 +90,8 @@ class CHBMIT(BaseDataset):
                     coeffs[-2] = np.zeros_like(coeffs[-2])
                     power = pywt.waverec(coeffs, "db4") ** 2
 
-                source_idx = np.argwhere((electrodes == sources[i]).all(1)).item()
-                target_idx = np.argwhere((electrodes == targets[i]).all(1)).item()
-                node_features[source_idx] += power / 2
-                node_features[target_idx] += power / 2
+                node_features[electrodes.index(source_names[i])] += power / 2
+                node_features[electrodes.index(target_names[i])] += power / 2
 
         adjecancy_matrix = np.zeros((n_electrodes * n_graphs, n_electrodes * n_graphs), dtype=np.float64)
         for idx in range(n_graphs):
@@ -115,22 +105,22 @@ class CHBMIT(BaseDataset):
                 # Inter graph connections (const/cluster/dynamic/...)
                 for j in range(n_electrodes):
                     if self.edge_select == "far":
-                        distance = np.linalg.norm(electrodes[j] - electrodes[i])
+                        y = electrode_positions[electrode_names.index(electrodes[j])]
+                        x = electrode_positions[electrode_names.index(electrodes[i])]
+                        distance = np.linalg.norm(y - x)
                         adjecancy_matrix[(idx*n_electrodes)+i, (idx*n_electrodes)+j] = 1 if distance > 0.1 else 0
                     elif self.edge_select == "close":
-                        distance = np.linalg.norm(electrodes[j] - electrodes[i])
+                        y = electrode_positions[electrode_names.index(electrodes[j])]
+                        x = electrode_positions[electrode_names.index(electrodes[i])]
+                        distance = np.linalg.norm(y - x)
                         adjecancy_matrix[(idx*n_electrodes)+i, (idx*n_electrodes)+j] = 1 if distance < 0.1 else 0
                     elif self.edge_select == "cluster":
-                        # source_idx = np.argwhere((electrodes == sources[i]).all(1)).item()
-                        # target_idx = np.argwhere((electrodes == targets[i]).all(1)).item()
-
-                        # data = self.distances
-                        # distance = data.loc[(data["from"] == f"EEG {id2electrode[i]}") & (data["to"] == f"EEG {id2electrode[j]}")]
-
-                        # if len(distance) > 0:
-                        #     distance = distance.iloc[0]["distance"]
-                        #     if distance > 0.9:
-                        #         adjecancy_matrix[i, j] = 1
+                        data = self.distances
+                        distance = data.loc[(data["from"] == f"EEG {electrodes[i]}") & (data["to"] == f"EEG {electrodes[j]}")]
+                        if len(distance) > 0:
+                            distance = distance.iloc[0]["distance"]
+                            if distance > 0.9:
+                                adjecancy_matrix[i, j] = 1
                     elif self.edge_select == "dynamic":
                         # TODO: implementation needed
                         pass
