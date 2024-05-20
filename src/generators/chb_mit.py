@@ -82,7 +82,7 @@ class Generator:
                     continue
 
                 labels, tmin, tmax = self.get_labels(raw, annotations)
-                sources, targets, picks = self.get_montage(raw, positions)
+                sources, targets, ch_names, picks = self.get_montage(raw, positions)
 
                 data = raw.get_data(tmin=tmin, tmax=tmax, picks=picks).astype(np.float32)
 
@@ -98,6 +98,7 @@ class Generator:
                         "labels": _labels,
                         "sources": sources,
                         "targets": targets,
+                        "ch_names": ch_names,
                     }
 
     def get_labels(self, raw, annotations):
@@ -126,7 +127,9 @@ class Generator:
             sources[idx] = positions[electrodes[0]]
             targets[idx] = positions[electrodes[1]]
 
-        return sources, targets, picks
+        ch_names = [f"EEG {raw.info['ch_names'][p]}" for p in picks]
+
+        return sources, targets, ch_names, picks
 
 
 build(Generator)
