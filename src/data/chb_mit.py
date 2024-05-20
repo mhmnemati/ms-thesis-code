@@ -136,6 +136,9 @@ class CHBMIT(BaseDataset):
     def graph2vec(self, item):
         return self.get_graph(True, item["data"], item["labels"], item["sources"], item["targets"], item["ch_names"])
 
+    def graph2seq(self, item):
+        return self.get_graph(False, item["data"], item["labels"], item["sources"], item["targets"], item["ch_names"])
+
     @staticmethod
     def add_arguments(parent_parser):
         parser = parent_parser.add_argument_group("CHBMIT")
@@ -143,7 +146,7 @@ class CHBMIT(BaseDataset):
         parser.add_argument("--folds", type=int, default=5)
         parser.add_argument("--num_workers", type=int, default=2)
         parser.add_argument("--batch_size", type=int, default=8)
-        parser.add_argument("--batch_type", type=str, default="tensor2vec", choices=["tensor2vec", "graph2vec"])
+        parser.add_argument("--batch_type", type=str, default="tensor2vec", choices=["tensor2vec", "graph2vec", "graph2seq"])
         parser.add_argument("--edge_select", type=str, default="far", choices=["far", "close", "cluster", "dynamic"])
         parser.add_argument("--wave_transform", type=str, default="power", choices=["power", "fourier", "wavelet"])
         return parent_parser
