@@ -130,7 +130,7 @@ class BIOTEncoder(nn.Module):
         return emb
 
 
-class BIOTModel(nn.Model):
+class BIOTModel(nn.Module):
     def __init__(self, n_outputs):
         super().__init__()
 
@@ -146,10 +146,9 @@ class BIOTModel(nn.Model):
         self.model.load_state_dict(
             torch.load("/root/pytorch_datasets/EEG-SHHS+PREST-18-channels.ckpt")
         )
-        self.classifier = nn.Sequential([
+        self.classifier = nn.Sequential(
             nn.Linear(in_features=256, out_features=n_outputs),
-            nn.LogSoftmax(dim=n_outputs),
-        ])
+        )
 
     def forward(self, x):
         x = self.model(x)
@@ -170,5 +169,5 @@ class BIOT(BaseModel):
     @staticmethod
     def add_arguments(parent_parser):
         parser = parent_parser.add_argument_group("Brain2Seq")
-        parser.add_argument("--n_outputs", type=int, default=2)
+        parser.add_argument("--n_outputs", type=int, default=5)
         return parent_parser

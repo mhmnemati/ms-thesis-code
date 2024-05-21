@@ -11,6 +11,8 @@ from .base import BaseDataset
 
 
 class SleepEDFX(BaseDataset):
+    seed = 100
+
     def __init__(self, **kwargs):
         transform = self.tensor2vec
         data_loader = TensorDataLoader
@@ -24,15 +26,39 @@ class SleepEDFX(BaseDataset):
             transform = self.biot
             data_loader = TensorDataLoader
 
+        self.k = kwargs["k"]
+        self.folds = kwargs["folds"]
         self.edge_select = kwargs["edge_select"]
         self.wave_transform = kwargs["wave_transform"]
 
         super().__init__(
-            name="sleep_edfx_window_30_overlap_5",
+            name="sleep_edfx_window_30_overlap_0",
+            filters=self.filters,
             transform=transform,
             data_loader=data_loader,
+            num_workers=kwargs["num_workers"],
             batch_size=kwargs["batch_size"],
         )
+
+    def filters(self, stage):
+        def select(items):
+            np.random.seed(self.seed)
+            np.random.shuffle(items)
+
+            if stage in ["test", "predict"]:
+                return items
+
+            all_patients = np.array(list(set([item.split("/")[-1][:5] for item in items])))
+            np.random.seed(self.seed)
+            np.random.shuffle(all_patients)
+            parts = np.array_split(all_patients, self.folds)
+
+            patients = np.concatenate(parts[:self.k] + parts[self.k+1:]) if stage == "train" else parts[self.k]
+            patients = [f"{p}" for p in patients]
+
+            return list(filter(lambda item: any([p in item for p in patients]), items))
+
+        return select
 
     def tensor2vec(self, item):
         return (item["data"], item["labels"].max())
@@ -130,7 +156,7 @@ class SleepEDFX(BaseDataset):
             "C4-A1",
         ]
 
-        data = np.zeros((len(channels), 30 * 200))
+        data = np.zeros((len(channels), 30 * 200), dtype=np.float32)
 
         for idx, ch_name in enumerate(item["ch_names"]):
             if "EEG" not in ch_name:
@@ -152,7 +178,10 @@ class SleepEDFX(BaseDataset):
 
     @staticmethod
     def add_arguments(parent_parser):
-        parser = parent_parser.add_argument_group("SleepEDFX")
+        parser = parent_parser.add_argument_group("CHBMIT")
+        parser.add_argument("--k", type=int, default=1)
+        parser.add_argument("--folds", type=int, default=5)
+        parser.add_argument("--num_workers", type=int, default=2)
         parser.add_argument("--batch_size", type=int, default=8)
         parser.add_argument("--batch_type", type=str, default="tensor2vec", choices=["tensor2vec", "graph2vec", "graph2seq", "biot"])
         parser.add_argument("--edge_select", type=str, default="far", choices=["far", "close", "cluster", "dynamic"])
