@@ -20,6 +20,9 @@ class SleepEDFX(BaseDataset):
         elif kwargs["batch_type"] == "graph2seq":
             transform = self.graph2seq
             data_loader = GraphDataLoader
+        elif kwargs["batch_type"] == "biot":
+            transform = self.biot
+            data_loader = TensorDataLoader
 
         self.edge_select = kwargs["edge_select"]
         self.wave_transform = kwargs["wave_transform"]
@@ -105,11 +108,53 @@ class SleepEDFX(BaseDataset):
     def graph2seq(self, item):
         return self.get_graph(False, item["data"], item["labels"], item["sources"], item["targets"])
 
+    def biot(self, item):
+        channels = [
+            "FP1-F7",
+            "F7-T7",
+            "T7-P7",
+            "P7-O1",
+            "FP2-F8",
+            "F8-T8",
+            "T8-P8",
+            "P8-O2",
+            "FP1-F3",
+            "F3-C3",
+            "C3-P3",
+            "P3-O1",
+            "FP2-F4",
+            "F4-C4",
+            "C4-P4",
+            "P4-O2",
+            "C3-A2",
+            "C4-A1",
+        ]
+
+        data = np.zeros((len(channels), 30 * 200))
+
+        for idx, ch_name in enumerate(item["ch_names"]):
+            if "EEG" not in ch_name:
+                continue
+
+            if ch_name.replace("EEG ", "") == "Fpz-Cz":
+                signal = sp.signal.resample(item["data"][idx], 30 * 200) / 2
+                data[channels.index("FP1-F3")] = signal
+                data[channels.index("F3-C3")] = signal
+                data[channels.index("FP2-F4")] = signal
+                data[channels.index("F4-C4")] = signal
+
+            if ch_name.replace("EEG ", "") == "Pz-Oz":
+                signal = sp.signal.resample(item["data"][idx], 30 * 200)
+                data[channels.index("P3-O1")] = signal
+                data[channels.index("P4-O2")] = signal
+
+        return (data, item["labels"].max())
+
     @staticmethod
     def add_arguments(parent_parser):
         parser = parent_parser.add_argument_group("SleepEDFX")
         parser.add_argument("--batch_size", type=int, default=8)
-        parser.add_argument("--batch_type", type=str, default="tensor2vec", choices=["tensor2vec", "graph2vec", "graph2seq"])
+        parser.add_argument("--batch_type", type=str, default="tensor2vec", choices=["tensor2vec", "graph2vec", "graph2seq", "biot"])
         parser.add_argument("--edge_select", type=str, default="far", choices=["far", "close", "cluster", "dynamic"])
         parser.add_argument("--wave_transform", type=str, default="power", choices=["power", "fourier", "wavelet"])
         return parent_parser
