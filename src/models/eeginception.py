@@ -1,17 +1,25 @@
-from .base import BaseModel
-import torch.nn.functional as F
+import torch as pt
 import braindecode.models as M
+
+from torch.utils.data import DataLoader
+
+from .base import BaseModel
 
 
 class EEGInception(BaseModel):
+    data_loader = DataLoader
+
     def __init__(self, **kwargs):
         hparams = {k: v for k, v in kwargs.items() if k in ["n_times", "n_chans", "n_outputs"]}
         super().__init__(
             num_classes=hparams["n_outputs"],
             hparams=hparams,
             model=M.EEGInception(**hparams),
-            loss=F.cross_entropy
+            loss=pt.nn.CrossEntropyLoss(weight=pt.tensor([0.01, 10000]))
         )
+
+    def transform(self, item):
+        return (item["data"], item["labels"].max())
 
     @staticmethod
     def add_arguments(parent_parser):

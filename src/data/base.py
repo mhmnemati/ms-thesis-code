@@ -1,56 +1,27 @@
 import os
-import glob
+import functools
 
-from torch import load
-from torch.utils.data import Dataset
-from lightning import LightningDataModule
+from torch import save
 
 
-class TensorDataset(Dataset):
-    def __init__(self, root, filter, transform):
-        self.transform = transform
-        self.items = filter(glob.glob(f"{os.path.expanduser(root)}/**/*.pt", recursive=True))
+def build(Generator):
+    for kwargs in Generator.hparams:
+        generator = Generator(**kwargs)
+        root = os.path.expanduser(f"~/pytorch_datasets/{generator.name}")
 
-    def __len__(self):
-        return len(self.items)
+        hparams = functools.reduce(lambda x, y: f"{x}_{y[0]}_{y[1]}", kwargs.items(), "")
+        os.makedirs(f"{root}{hparams}", exist_ok=True)
 
-    def __getitem__(self, index):
-        item = load(self.items[index])
-        if self.transform:
-            item = self.transform(item)
+        for key, records in generator(f"{root}_raw").items():
+            path = f"{root}{hparams}/{key}"
+            os.makedirs(path, exist_ok=True)
 
-        return item
+            counters = {}
+            for subpath, item in records:
+                if subpath not in counters:
+                    os.makedirs(f"{path}/{subpath}", exist_ok=True)
+                    counters[subpath] = 0
 
+                counters[subpath] += 1
 
-class BaseDataset(LightningDataModule):
-    def __init__(self, name, filters, transform, data_loader, num_workers, batch_size):
-        super().__init__()
-        self.root = f"~/pytorch_datasets/{name}"
-        self.filters = filters
-        self.transform = transform
-        self.data_loader = data_loader
-        self.num_workers = num_workers
-        self.batch_size = batch_size
-
-    def setup(self, stage):
-        if stage == "fit":
-            self.trainset = TensorDataset(f"{self.root}/train", filter=self.filters("train"), transform=self.transform)
-            self.validset = TensorDataset(f"{self.root}/train", filter=self.filters("valid"), transform=self.transform)
-
-        if stage == "test":
-            self.testset = TensorDataset(f"{self.root}/test", filter=self.filters("test"), transform=self.transform)
-
-        if stage == "predict":
-            self.predictset = TensorDataset(f"{self.root}/predict", filter=self.filters("predict"), transform=self.transform)
-
-    def train_dataloader(self):
-        return self.data_loader(self.trainset, num_workers=self.num_workers, batch_size=self.batch_size)
-
-    def val_dataloader(self):
-        return self.data_loader(self.validset, num_workers=self.num_workers, batch_size=self.batch_size)
-
-    def test_dataloader(self):
-        return self.data_loader(self.testset, num_workers=self.num_workers, batch_size=self.batch_size)
-
-    def predict_dataloader(self):
-        return self.data_loader(self.predictset, num_workers=self.num_workers, batch_size=self.batch_size)
+                save(item, f"{path}/{subpath}/{counters[subpath]}.pt")

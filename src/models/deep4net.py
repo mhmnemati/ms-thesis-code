@@ -1,10 +1,14 @@
-from .base import BaseModel
 import torch as pt
-import torch.nn.functional as F
 import braindecode.models as M
+
+from torch.utils.data import DataLoader
+
+from .base import BaseModel
 
 
 class Deep4Net(BaseModel):
+    data_loader = DataLoader
+
     def __init__(self, **kwargs):
         hparams = {k: v for k, v in kwargs.items() if k in ["n_times", "n_chans", "n_outputs"]}
         super().__init__(
@@ -13,6 +17,9 @@ class Deep4Net(BaseModel):
             model=M.Deep4Net(**hparams),
             loss=pt.nn.CrossEntropyLoss(weight=pt.tensor([0.01, 10000]))
         )
+
+    def transform(self, item):
+        return (item["data"], item["labels"].max())
 
     @staticmethod
     def add_arguments(parent_parser):

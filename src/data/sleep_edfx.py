@@ -1,189 +1,151 @@
+import mne
+import glob
 import numpy as np
-import scipy as sp
-import torch as pt
 
-from torch_geometric.data import Data
-from torch.utils.data import DataLoader as TensorDataLoader
-from torch_geometric.loader import DataLoader as GraphDataLoader
-from torch_geometric.utils.convert import from_scipy_sparse_matrix
-
-from .base import BaseDataset
+from base import build
 
 
-class SleepEDFX(BaseDataset):
+class Generator:
+    url = "https://www.physionet.org/static/published-projects/sleep-edfx/sleep-edf-database-expanded-1.0.0.zip"
     seed = 100
+    name = "sleep_edfx"
+    label2id = {
+        "Sleep stage W": 0,
+        "Sleep stage 1": 1,
+        "Sleep stage 2": 2,
+        "Sleep stage 3": 3,
+        "Sleep stage 4": 3,
+        "Sleep stage R": 4,
+    }
 
-    def __init__(self, **kwargs):
-        transform = self.tensor2vec
-        data_loader = TensorDataLoader
-        if kwargs["batch_type"] == "graph2vec":
-            transform = self.graph2vec
-            data_loader = GraphDataLoader
-        elif kwargs["batch_type"] == "graph2seq":
-            transform = self.graph2seq
-            data_loader = GraphDataLoader
-        elif kwargs["batch_type"] == "biot":
-            transform = self.biot
-            data_loader = TensorDataLoader
+    hparams = [
+        {"window": 30, "overlap": 0},
+        # {"window": 30, "overlap": 1},
+        # {"window": 30, "overlap": 5},
+    ]
 
-        self.k = kwargs["k"]
-        self.folds = kwargs["folds"]
-        self.edge_select = kwargs["edge_select"]
-        self.wave_transform = kwargs["wave_transform"]
+    sleep_edf_20 = [
+        "SC4001E0-PSG.edf",
+        "SC4002E0-PSG.edf",
+        "SC4011E0-PSG.edf",
+        "SC4012E0-PSG.edf",
+        "SC4021E0-PSG.edf",
+        "SC4022E0-PSG.edf",
+        "SC4031E0-PSG.edf",
+        "SC4032E0-PSG.edf",
+        "SC4041E0-PSG.edf",
+        "SC4042E0-PSG.edf",
+        "SC4051E0-PSG.edf",
+        "SC4052E0-PSG.edf",
+        "SC4061E0-PSG.edf",
+        "SC4062E0-PSG.edf",
+        "SC4071E0-PSG.edf",
+        "SC4072E0-PSG.edf",
+        "SC4081E0-PSG.edf",
+        "SC4082E0-PSG.edf",
+        "SC4091E0-PSG.edf",
+        "SC4092E0-PSG.edf",
+        "SC4101E0-PSG.edf",
+        "SC4102E0-PSG.edf",
+        "SC4111E0-PSG.edf",
+        "SC4112E0-PSG.edf",
+        "SC4121E0-PSG.edf",
+        "SC4122E0-PSG.edf",
+        "SC4131E0-PSG.edf",
+        "SC4141E0-PSG.edf",
+        "SC4142E0-PSG.edf",
+        "SC4151E0-PSG.edf",
+        "SC4152E0-PSG.edf",
+        "SC4161E0-PSG.edf",
+        "SC4162E0-PSG.edf",
+        "SC4171E0-PSG.edf",
+        "SC4172E0-PSG.edf",
+        "SC4181E0-PSG.edf",
+        "SC4182E0-PSG.edf",
+        "SC4191E0-PSG.edf",
+        "SC4192E0-PSG.edf",
+    ]
 
-        super().__init__(
-            name="sleep_edfx_window_30_overlap_0",
-            filters=self.filters,
-            transform=transform,
-            data_loader=data_loader,
-            num_workers=kwargs["num_workers"],
-            batch_size=kwargs["batch_size"],
-        )
+    def __init__(self, window=1, overlap=0):
+        self.window = window
+        self.overlap = overlap
 
-    def filters(self, stage):
-        def select(items):
-            np.random.seed(self.seed)
-            np.random.shuffle(items)
+    def __call__(self, path):
+        records = list(zip(
+            sorted(glob.glob(f"{path}/**/*-PSG.edf", recursive=True)),
+            sorted(glob.glob(f"{path}/**/*-Hypnogram.edf", recursive=True))
+        ))
+        records = list(filter(lambda x: x[0].split("/")[-1] in self.sleep_edf_20, records))
 
-            if stage in ["test", "predict"]:
-                return items
+        montage = mne.channels.make_standard_montage("standard_1020")
+        positions = {
+            key.upper(): val for key, val in
+            montage.get_positions()["ch_pos"].items()
+        }
 
-            all_patients = np.array(list(set([item.split("/")[-1][:5] for item in items])))
-            np.random.seed(self.seed)
-            np.random.shuffle(all_patients)
-            parts = np.array_split(all_patients, self.folds)
+        return {
+            "train": self.get_items(records, positions),
+        }
 
-            patients = np.concatenate(parts[:self.k] + parts[self.k+1:]) if stage == "train" else parts[self.k]
-            patients = [f"{p}" for p in patients]
+    def get_items(self, records, positions):
+        patients = {}
+        for record in records:
+            name = record[0].split("/")[-1][:5]
+            if name not in patients:
+                patients[name] = []
 
-            return list(filter(lambda item: any([p in item for p in patients]), items))
+            patients[name].append(record)
 
-        return select
+        for patient, records in patients.items():
+            for idx, record in enumerate(records):
+                raw = mne.io.read_raw_edf(record[0], infer_types=True, exclude=["Event marker", "Marker"])
+                annotation = mne.read_annotations(record[1])
 
-    def tensor2vec(self, item):
-        return (item["data"], item["labels"].max())
+                labels, tmin, tmax = self.get_labels(raw, annotation)
+                ch_names, picks = self.get_montage(raw, positions)
 
-    def get_graph(self, full, data, labels, sources, targets):
-        # electrodes        (21, 3)
+                data = raw.get_data(tmin=tmin, tmax=tmax, picks=picks).astype(np.float32)
 
-        # node_feature      (21, 3000)
-        # adjacency_matrix  (21, 21)
-        # y                 (1)
+                for low in range(0, len(labels), self.window - self.overlap):
+                    high = low + self.window
+                    sfreq = raw.info["sfreq"]
+                    if high >= len(labels):
+                        break
 
-        # node_feature      (21*30, 3000/30)
-        # adjacency_matrix  (21*30, 21*30)
-        # y                 (30)
+                    yield f"{patient}", {
+                        "data": data[:, int(low*sfreq):int(high*sfreq)],
+                        "labels": labels[low:high],
+                        "ch_names": ch_names,
+                    }
 
-        electrodes = np.unique(np.concatenate([sources, targets]), axis=0)
-        n_electrodes = electrodes.shape[0]
-        n_graphs = 1 if (full == True) else labels.shape[0]
-        n_times = int(data.shape[1] / n_graphs)
+    def get_labels(self, raw, annotation, crop_wake_mins=30):
+        seconds = int(raw.n_times / raw.info["sfreq"])
+        labels = np.zeros(seconds, dtype=np.int64)
 
-        node_features = np.zeros((n_electrodes * n_graphs, n_times), dtype=np.float32)
-        for idx in range(n_graphs):
-            for i in range(data.shape[0]):
-                # Convert bipolar wave data to electrode node_features
-                if self.wave_transform == "power":
-                    power = data[i, idx*n_times:(idx+1)*n_times] ** 2
-                    source_idx = np.argwhere((electrodes == sources[i]).all(1)).item()
-                    target_idx = np.argwhere((electrodes == targets[i]).all(1)).item()
-                    node_features[source_idx] += power / 2
-                    node_features[target_idx] += power / 2
-                elif self.wave_transform == "fourier":
-                    # TODO: implementation needed
-                    pass
-                elif self.wave_transform == "wavelet":
-                    # TODO: implementation needed
-                    pass
+        for item in annotation:
+            onset = int(item["onset"])
+            duration = int(item["duration"])
+            labels[onset:onset+duration] = (
+                self.label2id[item["description"]]
+                if item["description"] in self.label2id else 0
+            )
 
-        adjecancy_matrix = np.zeros((n_electrodes * n_graphs, n_electrodes * n_graphs), dtype=np.float64)
-        for idx in range(n_graphs):
-            for i in range(n_electrodes):
-                # Cross graph connections (before,after)
-                # TODO: parametric cross connections length
-                for c in range(1, 3):
-                    if idx + c < n_graphs:
-                        adjecancy_matrix[(idx*n_electrodes)+i, ((idx+c)*n_electrodes)+i] = 1
+        non_zeros = np.nonzero(labels)
+        tmin = max(int(raw.times[0]), np.min(non_zeros) - crop_wake_mins * 60)
+        tmax = min(int(raw.times[-1]), np.max(non_zeros) + crop_wake_mins * 60)
 
-                # Inter graph connections (const/cluster/dynamic/...)
-                for j in range(n_electrodes):
-                    if self.edge_select == "far":
-                        distance = np.linalg.norm(electrodes[j] - electrodes[i])
-                        adjecancy_matrix[(idx*n_electrodes)+i, (idx*n_electrodes)+j] = 1 if distance > 0.1 else 0
-                    elif self.edge_select == "close":
-                        distance = np.linalg.norm(electrodes[j] - electrodes[i])
-                        adjecancy_matrix[(idx*n_electrodes)+i, (idx*n_electrodes)+j] = 1 if distance < 0.1 else 0
-                    elif self.edge_select == "cluster":
-                        # TODO: implementation needed
-                        pass
-                    elif self.edge_select == "dynamic":
-                        # TODO: implementation needed
-                        pass
+        return labels[tmin:tmax], tmin, tmax
 
-        return Data(
-            x=pt.from_numpy(node_features),
-            y=pt.tensor(labels.max() if (full == True) else labels.reshape(1, -1)),
-            edge_index=from_scipy_sparse_matrix(sp.sparse.csr_matrix(adjecancy_matrix))[0],
-            graph_size=pt.tensor(n_electrodes),
-            graph_length=pt.tensor(n_graphs),
-        )
+    def get_montage(self, raw, positions):
+        picks_eeg = list(mne.pick_types(raw.info, eeg=True))
+        picks_eog = list(mne.pick_types(raw.info, eog=True))
+        picks_emg = list(mne.pick_types(raw.info, emg=True))
 
-    def graph2vec(self, item):
-        return self.get_graph(True, item["data"], item["labels"], item["sources"], item["targets"])
+        names_eeg = [f"EEG {raw.info['ch_names'][p]}" for p in picks_eeg]
+        names_eog = [f"EOG {raw.info['ch_names'][p]}" for p in picks_eog]
+        names_emg = [f"EMG {raw.info['ch_names'][p]}" for p in picks_emg]
 
-    def graph2seq(self, item):
-        return self.get_graph(False, item["data"], item["labels"], item["sources"], item["targets"])
+        return (names_eeg + names_eog + names_emg), (picks_eeg + picks_eog + picks_emg)
 
-    def biot(self, item):
-        channels = [
-            "FP1-F7",
-            "F7-T7",
-            "T7-P7",
-            "P7-O1",
-            "FP2-F8",
-            "F8-T8",
-            "T8-P8",
-            "P8-O2",
-            "FP1-F3",
-            "F3-C3",
-            "C3-P3",
-            "P3-O1",
-            "FP2-F4",
-            "F4-C4",
-            "C4-P4",
-            "P4-O2",
-            "C3-A2",
-            "C4-A1",
-        ]
 
-        data = np.zeros((len(channels), 30 * 200), dtype=np.float32)
-
-        for idx, ch_name in enumerate(item["ch_names"]):
-            if "EEG" not in ch_name:
-                continue
-
-            if ch_name.replace("EEG ", "") == "Fpz-Cz":
-                signal = sp.signal.resample(item["data"][idx], 30 * 200) / 2
-                data[channels.index("FP1-F3")] = signal
-                data[channels.index("F3-C3")] = signal
-                data[channels.index("FP2-F4")] = signal
-                data[channels.index("F4-C4")] = signal
-
-            if ch_name.replace("EEG ", "") == "Pz-Oz":
-                signal = sp.signal.resample(item["data"][idx], 30 * 200)
-                data[channels.index("P3-O1")] = signal
-                data[channels.index("P4-O2")] = signal
-
-        return (data, item["labels"].max())
-
-    @staticmethod
-    def add_arguments(parent_parser):
-        parser = parent_parser.add_argument_group("CHBMIT")
-        parser.add_argument("--k", type=int, default=1)
-        parser.add_argument("--folds", type=int, default=5)
-        parser.add_argument("--num_workers", type=int, default=2)
-        parser.add_argument("--batch_size", type=int, default=8)
-        parser.add_argument("--batch_type", type=str, default="tensor2vec", choices=["tensor2vec", "graph2vec", "graph2seq", "biot"])
-        parser.add_argument("--edge_select", type=str, default="far", choices=["far", "close", "cluster", "dynamic"])
-        parser.add_argument("--wave_transform", type=str, default="power", choices=["power", "fourier", "wavelet"])
-        return parent_parser
+build(Generator)
