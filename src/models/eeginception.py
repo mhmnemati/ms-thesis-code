@@ -1,3 +1,4 @@
+import numpy as np
 import torch as pt
 import braindecode.models as M
 
@@ -18,12 +19,18 @@ class EEGInception(BaseModel):
         )
 
     def transform(self, item):
-        return (item["data"], item["labels"].max())
+        data = item["data"]
+        label = item["labels"].max()
+
+        if data.shape[0] != self.hparams.n_chans:
+            data = np.concatenate([data, np.zeros((self.hparams.n_chans - data.shape[0], data.shape[1]))])
+
+        return data, label
 
     @staticmethod
     def add_arguments(parent_parser):
         parser = parent_parser.add_argument_group("EEGInception")
-        parser.add_argument("--n_times", type=int, default=3000)
         parser.add_argument("--n_chans", type=int, default=23)
+        parser.add_argument("--n_times", type=int, default=3000)
         parser.add_argument("--n_outputs", type=int, default=2)
         return parent_parser

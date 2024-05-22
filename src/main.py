@@ -18,6 +18,9 @@ model_classes = {
 }
 data_sets = [
     "chb_mit_window_1",
+    "chb_mit_window_5",
+    "chb_mit_window_15",
+    "chb_mit_window_30",
     "sleep_edfx_window_30_overlap_0"
 ]
 

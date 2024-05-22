@@ -44,8 +44,9 @@ class BaseModel(L.LightningModule):
     def on_train_start(self):
         self.logger.log_hyperparams(self.hparams, {
             "training/f1": 0,
-            "training/aucroc": 0,
+            "training/recall": 0,
             "training/accuracy": 0,
+            "training/precision": 0,
         })
 
     def general_step(self, batch):

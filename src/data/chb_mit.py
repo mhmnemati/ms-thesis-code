@@ -16,13 +16,14 @@ class Generator:
     ]
 
     hparams = [
-        {"window": 1, "seq_length": 0},
-        {"window": 1, "seq_length": 2},
+        {"window": 1},
+        {"window": 5},
+        {"window": 15},
+        {"window": 30},
     ]
 
-    def __init__(self, window=1, seq_length=0):
+    def __init__(self, window=1):
         self.window = window
-        self.seq_length = seq_length
 
     def __call__(self, path):
         records = sorted(glob.glob(f"{path}/**/*.edf", recursive=True))
@@ -70,7 +71,7 @@ class Generator:
             seizures = np.array(seizures)
 
             np.random.seed(self.seed)
-            selects = np.random.choice(normals.shape[0], seizures.shape[0] * 4)
+            selects = np.random.choice(normals.shape[0], seizures.shape[0] * 4, replace=False)
 
             normals = normals[selects]
 
@@ -92,6 +93,9 @@ class Generator:
                 for low in seconds:
                     high = low + self.window
                     sfreq = raw.info["sfreq"]
+
+                    if high > len(labels):
+                        continue
 
                     _labels = labels[int(low):int(high)]
 
