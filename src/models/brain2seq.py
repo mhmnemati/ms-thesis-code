@@ -8,11 +8,10 @@ import torch.nn as T
 import torch_geometric.nn as G
 import torch.nn.functional as F
 
+from .base import BaseModel
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from torch_geometric.utils.convert import from_scipy_sparse_matrix
-
-from .base import BaseModel
 
 
 class Model(T.Module):

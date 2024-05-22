@@ -1,9 +1,8 @@
 import torch as pt
 import braindecode.models as M
 
-from torch.utils.data import DataLoader
-
 from .base import BaseModel
+from torch.utils.data import DataLoader
 
 
 class EEGInception(BaseModel):

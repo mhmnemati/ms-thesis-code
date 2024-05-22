@@ -1,10 +1,12 @@
 import math
-import torch
-import torch.nn as nn
 import numpy as np
-from linear_attention_transformer import LinearAttentionTransformer
+import scipy as sp
+import torch as pt
+import torch.nn as nn
 
 from .base import BaseModel
+from torch.utils.data import DataLoader
+from linear_attention_transformer import LinearAttentionTransformer
 
 
 class PatchFrequencyEmbedding(nn.Module):
@@ -28,17 +30,17 @@ class PositionalEncoding(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
 
         # Compute the positional encodings once in log space.
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len).unsqueeze(1).float()
-        div_term = torch.exp(
-            torch.arange(0, d_model, 2).float() * -(math.log(10000.0) / d_model)
+        pe = pt.zeros(max_len, d_model)
+        position = pt.arange(0, max_len).unsqueeze(1).float()
+        div_term = pt.exp(
+            pt.arange(0, d_model, 2).float() * -(math.log(10000.0) / d_model)
         )
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
+        pe[:, 0::2] = pt.sin(position * div_term)
+        pe[:, 1::2] = pt.cos(position * div_term)
         pe = pe.unsqueeze(0)
         self.register_buffer("pe", pe)
 
-    def forward(self, x: torch.FloatTensor) -> torch.FloatTensor:
+    def forward(self, x: pt.FloatTensor) -> pt.FloatTensor:
         """
         Args:
             x: `embeddings`, shape (batch, max_len, d_model)
@@ -81,11 +83,11 @@ class BIOTEncoder(nn.Module):
         # channel token, N_channels >= your actual channels
         self.channel_tokens = nn.Embedding(n_channels, 256)
         self.index = nn.Parameter(
-            torch.LongTensor(range(n_channels)), requires_grad=False
+            pt.LongTensor(range(n_channels)), requires_grad=False
         )
 
     def stft(self, sample):
-        spectral = torch.stft(
+        spectral = pt.stft(
             input=sample.squeeze(1),
             n_fft=self.n_fft,
             hop_length=self.hop_length,
@@ -93,7 +95,7 @@ class BIOTEncoder(nn.Module):
             onesided=True,
             return_complex=True,
         )
-        return torch.abs(spectral)
+        return pt.abs(spectral)
 
     def forward(self, x, n_channel_offset=0, perturb=False):
         """
@@ -124,7 +126,7 @@ class BIOTEncoder(nn.Module):
             emb_seq.append(channel_emb)
 
         # (batch_size, 16 * ts, emb)
-        emb = torch.cat(emb_seq, dim=1)
+        emb = pt.cat(emb_seq, dim=1)
         # (batch_size, emb)
         emb = self.transformer(emb).mean(dim=1)
         return emb
@@ -144,7 +146,7 @@ class BIOTModel(nn.Module):
             n_channels=18,
         )
         self.model.load_state_dict(
-            torch.load("/root/pytorch_datasets/EEG-SHHS+PREST-18-channels.ckpt")
+            pt.load("/root/pytorch_datasets/EEG-SHHS+PREST-18-channels.ckpt")
         )
         self.classifier = nn.Sequential(
             nn.Linear(in_features=256, out_features=n_outputs),
@@ -157,14 +159,58 @@ class BIOTModel(nn.Module):
 
 
 class BIOT(BaseModel):
+    data_loader = DataLoader
+
     def __init__(self, **kwargs):
-        hparams = {k: v for k, v in kwargs.items() if k in ["n_times", "n_outputs"]}
+        hparams = {k: v for k, v in kwargs.items() if k in ["n_outputs"]}
         super().__init__(
             num_classes=hparams["n_outputs"],
             hparams=hparams,
             model=BIOTModel(**hparams),
-            loss=torch.nn.CrossEntropyLoss()
+            loss=pt.nn.CrossEntropyLoss()
         )
+
+    def transform(self, item):
+        channels = [
+            "FP1-F7",
+            "F7-T7",
+            "T7-P7",
+            "P7-O1",
+            "FP2-F8",
+            "F8-T8",
+            "T8-P8",
+            "P8-O2",
+            "FP1-F3",
+            "F3-C3",
+            "C3-P3",
+            "P3-O1",
+            "FP2-F4",
+            "F4-C4",
+            "C4-P4",
+            "P4-O2",
+            "C3-A2",
+            "C4-A1",
+        ]
+
+        data = np.zeros((len(channels), 30 * 200), dtype=np.float32)
+
+        for idx, ch_name in enumerate(item["ch_names"]):
+            if "EEG" not in ch_name:
+                continue
+
+            if ch_name.replace("EEG ", "") == "Fpz-Cz":
+                signal = sp.signal.resample(item["data"][idx], 30 * 200) / 2
+                data[channels.index("FP1-F3")] = signal
+                data[channels.index("F3-C3")] = signal
+                data[channels.index("FP2-F4")] = signal
+                data[channels.index("F4-C4")] = signal
+
+            if ch_name.replace("EEG ", "") == "Pz-Oz":
+                signal = sp.signal.resample(item["data"][idx], 30 * 200)
+                data[channels.index("P3-O1")] = signal
+                data[channels.index("P4-O2")] = signal
+
+        return (data, item["labels"].max())
 
     @staticmethod
     def add_arguments(parent_parser):
