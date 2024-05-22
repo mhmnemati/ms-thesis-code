@@ -39,8 +39,8 @@ args = parser.parse_args()
 
 model = Model(**vars(args))
 
-train_set = TensorDataset(name=args.data, split="train", folds=args.folds, k=+(args.k), transform=model.transform)
-valid_set = TensorDataset(name=args.data, split="train", folds=args.folds, k=-(args.k), transform=model.transform)
+train_set = TensorDataset(name=args.data, split="train", folds=args.folds, k=-(args.k), transform=model.transform)
+valid_set = TensorDataset(name=args.data, split="train", folds=args.folds, k=+(args.k), transform=model.transform)
 train_loader = model.data_loader(train_set, num_workers=args.num_workers, batch_size=args.batch_size)
 valid_loader = model.data_loader(valid_set, num_workers=args.num_workers, batch_size=args.batch_size)
 
