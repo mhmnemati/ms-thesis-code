@@ -99,12 +99,12 @@ class GCNBiGRU(BaseModel):
                     y = electrode_positions[electrode_names.index(electrodes[j])]
                     x = electrode_positions[electrode_names.index(electrodes[i])]
                     distance = np.linalg.norm(y - x)
-                    adjecancy_matrix[(n_electrodes)+i, (n_electrodes)+j] = 1 if distance > 0.1 else 0
+                    adjecancy_matrix[i, j] = 1 if distance > 0.1 else 0
                 elif self.edge_select == "close":
                     y = electrode_positions[electrode_names.index(electrodes[j])]
                     x = electrode_positions[electrode_names.index(electrodes[i])]
                     distance = np.linalg.norm(y - x)
-                    adjecancy_matrix[(n_electrodes)+i, (n_electrodes)+j] = 1 if distance < 0.1 else 0
+                    adjecancy_matrix[i, j] = 1 if distance < 0.1 else 0
                 elif self.edge_select == "cluster":
                     data = self.distances
                     distance = data.loc[(data["from"] == f"EEG {electrodes[i]}") & (data["to"] == f"EEG {electrodes[j]}")]

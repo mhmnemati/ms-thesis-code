@@ -112,12 +112,12 @@ class Brain2Vec(BaseModel):
                     y = electrode_positions[electrode_names.index(electrodes[j])]
                     x = electrode_positions[electrode_names.index(electrodes[i])]
                     distance = np.linalg.norm(y - x)
-                    adjecancy_matrix[(n_electrodes)+i, (n_electrodes)+j] = 1 if distance > 0.1 else 0
+                    adjecancy_matrix[i, j] = 1 if distance > 0.1 else 0
                 elif self.edge_select == "close":
                     y = electrode_positions[electrode_names.index(electrodes[j])]
                     x = electrode_positions[electrode_names.index(electrodes[i])]
                     distance = np.linalg.norm(y - x)
-                    adjecancy_matrix[(n_electrodes)+i, (n_electrodes)+j] = 1 if distance < 0.1 else 0
+                    adjecancy_matrix[i, j] = 1 if distance < 0.1 else 0
                 elif self.edge_select == "cluster":
                     data = self.distances
                     distance = data.loc[(data["from"] == f"EEG {electrodes[i]}") & (data["to"] == f"EEG {electrodes[j]}")]
@@ -140,7 +140,7 @@ class Brain2Vec(BaseModel):
     @staticmethod
     def add_arguments(parent_parser):
         parser = parent_parser.add_argument_group("Brain2Vec")
-        parser.add_argument("--n_times", type=int, default=3000)
+        parser.add_argument("--n_times", type=int, default=256)
         parser.add_argument("--n_outputs", type=int, default=2)
         parser.add_argument("--layer_type", type=str, default="gcn", choices=["gcn", "gcn2", "gat", "gat2", "cheb"])
         parser.add_argument("--aggregator", type=str, default="min", choices=["min", "max", "mean", "median"])
