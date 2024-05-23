@@ -19,6 +19,8 @@ class Model(T.Module):
         super().__init__()
 
         self.model = G.Sequential("x, edge_index, graph_size, graph_length, batch", [
+            (T.InstanceNorm1d(num_features=int(n_times/1)), "x -> x"),
+
             (G.GCNConv(in_channels=int(n_times/1), out_channels=int(n_times/2)), "x, edge_index -> x"),
             (T.BatchNorm1d(num_features=int(n_times/2)), "x -> x"),
             (T.ReLU(), "x -> x"),
@@ -62,10 +64,6 @@ class GCNBiGRU(BaseModel):
         sources = item["sources"]
         targets = item["targets"]
         ch_names = item["ch_names"]
-
-        for i in range(data.shape[0]):
-            percentile_95 = np.percentile(np.abs(data[i]), 95, axis=0, keepdims=True)
-            data[i] = data[i] / percentile_95
 
         source_names = [name.replace("EEG ", "").split("-")[0] for name in ch_names]
         target_names = [name.replace("EEG ", "").split("-")[1] for name in ch_names]
