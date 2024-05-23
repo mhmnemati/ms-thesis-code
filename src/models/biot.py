@@ -206,14 +206,22 @@ class BIOT(BaseModel):
                 continue
 
             if ch_name.replace("EEG ", "") == "Fpz-Cz":
-                signal = sp.signal.resample(item["data"][idx], 30 * 200) / 2
+                signal = item["data"][idx]
+                percentile_95 = np.percentile(np.abs(signal), 95, axis=0, keepdims=True)
+                signal = signal / percentile_95
+
+                signal = sp.signal.resample(signal, 30 * 200) / 2
                 data[channels.index("FP1-F3")] = signal
                 data[channels.index("F3-C3")] = signal
                 data[channels.index("FP2-F4")] = signal
                 data[channels.index("F4-C4")] = signal
 
             if ch_name.replace("EEG ", "") == "Pz-Oz":
-                signal = sp.signal.resample(item["data"][idx], 30 * 200)
+                signal = item["data"][idx]
+                percentile_95 = np.percentile(np.abs(signal), 95, axis=0, keepdims=True)
+                signal = signal / percentile_95
+
+                signal = sp.signal.resample(signal, 30 * 200)
                 data[channels.index("P3-O1")] = signal
                 data[channels.index("P4-O2")] = signal
 
