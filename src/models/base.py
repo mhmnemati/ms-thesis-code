@@ -53,8 +53,11 @@ class BaseModel(L.LightningModule):
         batch_size, args, y = 0, 0, 0
         if isinstance(batch, Batch):
             batch_size = batch.num_graphs
-            args = (batch.x, batch.edge_index, batch.graph_size, batch.graph_length, batch.batch)
+            args = (batch.x, batch.edge_index, batch.batch)
             y = batch.y
+
+            if "graph_size" in batch:
+                args = (batch.x, batch.edge_index, batch.graph_size, batch.graph_length, batch.batch)
         else:
             batch_size = len(batch[1])
             args = (batch[0],)
