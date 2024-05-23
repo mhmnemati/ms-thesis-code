@@ -79,16 +79,16 @@ class BaseModel(L.LightningModule):
     def training_step(self, batch, idx):
         batch_size, loss, pred, y = self.general_step(batch)
 
-        self.log("training/loss", loss, batch_size=batch_size, prog_bar=True)
-        self.log_dict(self.training_metrics(pred, y), batch_size=batch_size, on_step=False, on_epoch=True)
+        self.log("training/loss", loss, batch_size=batch_size, prog_bar=True, sync_dist=True)
+        self.log_dict(self.training_metrics(pred, y), batch_size=batch_size, on_step=False, on_epoch=True, sync_dist=True)
 
         return loss
 
     def validation_step(self, batch, idx):
         batch_size, loss, pred, y = self.general_step(batch)
 
-        self.log("validation/loss", loss, batch_size=batch_size)
-        self.log_dict(self.validation_metrics(pred, y), batch_size=batch_size)
+        self.log("validation/loss", loss, batch_size=batch_size, sync_dist=True)
+        self.log_dict(self.validation_metrics(pred, y), batch_size=batch_size, sync_dist=True)
 
         self.confusion_matrix.update(pred, y)
 
