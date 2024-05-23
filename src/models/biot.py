@@ -147,7 +147,7 @@ class BIOTModel(nn.Module):
             n_channels=18,
         )
         self.model.load_state_dict(
-            pt.load(f"{os.path.dirname(__file__)}/EEG-SHHS+PREST-18-channels.ckpt")
+            pt.load(f"{os.path.dirname(__file__)}/EEG-six-datasets-18-channels.ckpt")
         )
         self.classifier = nn.Sequential(
             nn.Linear(in_features=256, out_features=n_outputs),
@@ -170,6 +170,12 @@ class BIOT(BaseModel):
             model=BIOTModel(**hparams),
             loss=pt.nn.CrossEntropyLoss()
         )
+
+    def configure_optimizers(self):
+        optimizer = pt.optim.Adam(self.parameters(), lr=1e-2, weight_decay=1e-5)
+        scheduler = pt.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[int(1 * 100), int(4 * 100)], gamma=0.1)
+
+        return [optimizer], [scheduler]
 
     def transform(self, item):
         channels = [
