@@ -63,6 +63,10 @@ class GCNBiGRU(BaseModel):
         targets = item["targets"]
         ch_names = item["ch_names"]
 
+        for i in range(data.shape[0]):
+            percentile_95 = np.percentile(np.abs(data[i]), 95, axis=0, keepdims=True)
+            data[i] = data[i] / percentile_95
+
         source_names = [name.replace("EEG ", "").split("-")[0] for name in ch_names]
         target_names = [name.replace("EEG ", "").split("-")[1] for name in ch_names]
 

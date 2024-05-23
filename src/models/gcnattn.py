@@ -56,6 +56,10 @@ class GCNAttn(BaseModel):
         data = item["data"]
         labels = item["labels"]
 
+        for i in range(data.shape[0]):
+            percentile_95 = np.percentile(np.abs(data[i]), 95, axis=0, keepdims=True)
+            data[i] = data[i] / percentile_95
+
         node_features = np.zeros((data.shape[0], data.shape[1]), dtype=np.float32)
         for i in range(data.shape[0]):
             node_features[i] = np.abs(np.fft.fft(data[i, :]))
