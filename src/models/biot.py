@@ -1,3 +1,4 @@
+import os
 import math
 import numpy as np
 import scipy as sp
@@ -146,7 +147,7 @@ class BIOTModel(nn.Module):
             n_channels=18,
         )
         self.model.load_state_dict(
-            pt.load("/root/pytorch_datasets/EEG-SHHS+PREST-18-channels.ckpt")
+            pt.load(f"{os.path.dirname(__file__)}/EEG-SHHS+PREST-18-channels.ckpt")
         )
         self.classifier = nn.Sequential(
             nn.Linear(in_features=256, out_features=n_outputs),
