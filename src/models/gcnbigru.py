@@ -57,25 +57,20 @@ class GCNBiGRU(BaseModel):
         self.wave_transform = kwargs["wave_transform"]
 
     def transform(self, item):
-        data = item["data"]
-        labels = item["labels"]
-        sources = item["sources"]
-        targets = item["targets"]
-        ch_names = item["ch_names"]
+        for i in range(item["data"].shape[0]):
+            percentile_95 = np.percentile(np.abs(item["data"][i]), 95, axis=0, keepdims=True)
+            item["data"][i] = item["data"][i] / percentile_95
 
-        source_names = [name.replace("EEG ", "").split("-")[0] for name in ch_names]
-        target_names = [name.replace("EEG ", "").split("-")[1] for name in ch_names]
-
-        electrode_positions = np.concatenate([sources, targets])
+        source_names = [name.replace("EEG ", "").split("-")[0] for name in item["ch_names"]]
+        target_names = [name.replace("EEG ", "").split("-")[1] for name in item["ch_names"]]
+        electrode_positions = np.concatenate([item["sources"], item["targets"]])
         electrode_names = (source_names + target_names)
         electrodes = list(set(electrode_names))
-        n_electrodes = len(electrodes)
-        n_times = int(data.shape[1])
 
-        node_features = np.zeros((n_electrodes, n_times), dtype=np.float32)
-        for i in range(data.shape[0]):
+        node_features = np.zeros((len(electrodes), item["data"].shape[1]), dtype=np.float32)
+        for i in range(item["data"].shape[0]):
             # Convert bipolar wave data to electrode node_features
-            power = data[i, :]
+            power = item["data"][i]
 
             if self.wave_transform == "raw":
                 power = power ** 2
@@ -90,37 +85,34 @@ class GCNBiGRU(BaseModel):
             node_features[electrodes.index(source_names[i])] += power / 2
             node_features[electrodes.index(target_names[i])] += power / 2
 
-        adjecancy_matrix = np.zeros((n_electrodes, n_electrodes), dtype=np.float64)
-        for i in range(n_electrodes):
+        adjecancy_matrix = np.zeros((node_features.shape[0], node_features.shape[0]), dtype=np.float64)
+        for i in range(node_features.shape[0]):
             # Inter graph connections (const/cluster/dynamic/...)
-            for j in range(n_electrodes):
+            for j in range(node_features.shape[0]):
                 if self.edge_select == "far":
-                    y = electrode_positions[electrode_names.index(electrodes[j])]
                     x = electrode_positions[electrode_names.index(electrodes[i])]
+                    y = electrode_positions[electrode_names.index(electrodes[j])]
                     distance = np.linalg.norm(y - x)
-                    adjecancy_matrix[i, j] = 1 if distance > 0.1 else 0
+                    if distance > 0.1:
+                        adjecancy_matrix[i, j] = 1
                 elif self.edge_select == "close":
-                    y = electrode_positions[electrode_names.index(electrodes[j])]
                     x = electrode_positions[electrode_names.index(electrodes[i])]
+                    y = electrode_positions[electrode_names.index(electrodes[j])]
                     distance = np.linalg.norm(y - x)
-                    adjecancy_matrix[i, j] = 1 if distance < 0.1 else 0
+                    if distance < 0.1:
+                        adjecancy_matrix[i, j] = 1
                 elif self.edge_select == "cluster":
-                    data = self.distances
-                    distance = data.loc[(data["from"] == f"EEG {electrodes[i]}") & (data["to"] == f"EEG {electrodes[j]}")]
-                    if len(distance) > 0:
-                        distance = distance.iloc[0]["distance"]
-                        if distance > 0.9:
-                            adjecancy_matrix[i, j] = 1
+                    distance = self.distances.loc[(self.distances["from"] == f"EEG {electrodes[i]}") & (self.distances["to"] == f"EEG {electrodes[j]}")]
+                    if len(distance) > 0 and distance.iloc[0]["distance"] > 0.9:
+                        adjecancy_matrix[i, j] = 1
                 elif self.edge_select == "dynamic":
                     # TODO: implementation needed
                     pass
 
         return Data(
             x=pt.from_numpy(node_features),
-            y=pt.tensor(labels.max()),
+            y=pt.tensor(item["labels"].max()),
             edge_index=from_scipy_sparse_matrix(sp.sparse.csr_matrix(adjecancy_matrix))[0],
-            graph_size=pt.tensor(n_electrodes),
-            graph_length=1,
         )
 
     @staticmethod

@@ -19,6 +19,10 @@ class Deep4Net(BaseModel):
         )
 
     def transform(self, item):
+        for i in range(item["data"].shape[0]):
+            percentile_95 = np.percentile(np.abs(item["data"][i]), 95, axis=0, keepdims=True)
+            item["data"][i] = item["data"][i] / percentile_95
+
         data = np.zeros((self.hparams.n_chans, item["data"].shape[1]))
         data[:item["data"].shape[0]] = item["data"]
 
