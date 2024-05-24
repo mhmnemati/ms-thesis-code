@@ -19,8 +19,6 @@ class Model(T.Module):
         super().__init__()
 
         self.model = G.Sequential("x, edge_index, graph_size, graph_length, batch", [
-            (T.InstanceNorm1d(num_features=int(n_times/1)), "x -> x"),
-
             (G.GCNConv(in_channels=int(n_times/1), out_channels=int(n_times/2)), "x, edge_index -> x"),
             (T.BatchNorm1d(num_features=int(n_times/2)), "x -> x"),
             (T.ReLU(), "x -> x"),

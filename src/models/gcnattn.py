@@ -18,8 +18,6 @@ class Model(T.Module):
         super().__init__()
 
         self.model = G.Sequential("x, edge_index, batch", [
-            (T.InstanceNorm1d(num_features=int(n_times/1)), "x -> x"),
-
             (G.GCNConv(in_channels=int(n_times/1), out_channels=int(n_times/2)), "x, edge_index -> x"),
             (T.BatchNorm1d(num_features=int(n_times/2)), "x -> x"),
             (T.ReLU(), "x -> x"),
@@ -55,23 +53,24 @@ class GCNAttn(BaseModel):
         )
 
     def transform(self, item):
-        data = item["data"]
-        labels = item["labels"]
+        for i in range(item["data"].shape[0]):
+            percentile_95 = np.percentile(np.abs(item["data"][i]), 95, axis=0, keepdims=True)
+            item["data"][i] = item["data"][i] / percentile_95
 
-        node_features = np.zeros((data.shape[0], data.shape[1]), dtype=np.float32)
-        for i in range(data.shape[0]):
-            node_features[i] = np.abs(np.fft.fft(data[i, :]))
+        node_features = np.zeros((item["data"].shape[0], item["data"].shape[1]), dtype=np.float32)
+        for i in range(item["data"].shape[0]):
+            node_features[i] = np.abs(np.fft.fft(item["data"][i]))
 
-        adjecancy_matrix = np.zeros((data.shape[0], data.shape[0]))
-        for i in range(data.shape[0]):
-            for j in range(data.shape[0]):
-                correlation = sp.stats.pearsonr(data[i], data[j]).statistic
+        adjecancy_matrix = np.zeros((node_features.shape[0], node_features.shape[0]))
+        for i in range(adjecancy_matrix.shape[0]):
+            for j in range(adjecancy_matrix.shape[1]):
+                correlation = sp.stats.pearsonr(item["data"][i], item["data"][j]).statistic
                 if correlation > 0.3:
                     adjecancy_matrix[i, j] = 1
 
         return Data(
             x=pt.from_numpy(node_features),
-            y=pt.tensor(labels.max()),
+            y=pt.tensor(item["labels"].max()),
             edge_index=from_scipy_sparse_matrix(sp.sparse.csr_matrix(adjecancy_matrix))[0],
         )
 

@@ -19,13 +19,10 @@ class Deep4Net(BaseModel):
         )
 
     def transform(self, item):
-        data = item["data"]
-        label = item["labels"].max()
+        data = np.zeros((self.hparams.n_chans, item["data"].shape[1]))
+        data[:item["data"].shape[0]] = item["data"]
 
-        if data.shape[0] != self.hparams.n_chans:
-            data = np.concatenate([data, np.zeros((self.hparams.n_chans - data.shape[0], data.shape[1]))])
-
-        return data, label
+        return data, item["labels"].max()
 
     @staticmethod
     def add_arguments(parent_parser):
