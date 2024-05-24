@@ -15,7 +15,7 @@ class EEGInception(BaseModel):
             num_classes=hparams["n_outputs"],
             hparams=hparams,
             model=M.EEGInception(**hparams),
-            loss=pt.nn.CrossEntropyLoss(weight=pt.tensor([0.01, 10000]))
+            loss=pt.nn.CrossEntropyLoss()
         )
 
     def transform(self, item):

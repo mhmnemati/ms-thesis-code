@@ -37,7 +37,7 @@ class BaseModel(L.LightningModule):
         return self.model(*args)
 
     def configure_optimizers(self):
-        optimizer = pt.optim.Adam(self.parameters(), lr=2e-3, weight_decay=2e-5)
+        optimizer = pt.optim.Adam(self.parameters(), lr=1e-4, weight_decay=1e-5)
         # scheduler = pt.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20)
         return [optimizer], []
 
