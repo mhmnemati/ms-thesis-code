@@ -1,6 +1,7 @@
 import numpy as np
 import torch as pt
 import braindecode.models as M
+import focal_loss as fl
 
 from .base import BaseModel
 from torch.utils.data import DataLoader
@@ -15,7 +16,7 @@ class Deep4Net(BaseModel):
             num_classes=hparams["n_outputs"],
             hparams=hparams,
             model=M.Deep4Net(**hparams),
-            loss=pt.nn.CrossEntropyLoss()
+            loss=fl.FocalLoss(gamma=0.7),
         )
 
     def transform(self, item):

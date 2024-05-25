@@ -4,6 +4,7 @@ lightning==2.2.1
 ipykernel==6.29.2
 matplotlib==3.8.2
 braindecode==0.8.1
+focal_loss_torch==0.1.2
 linear-attention-transformer==0.19.1
 tensorboard==2.16.2
 torch_geometric==2.5.2
