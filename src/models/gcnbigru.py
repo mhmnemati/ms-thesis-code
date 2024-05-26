@@ -5,8 +5,8 @@ import scipy as sp
 import torch as pt
 import pandas as pd
 import torch.nn as T
+import focal_loss as fl
 import torch_geometric.nn as G
-import torch.nn.functional as F
 
 from .base import BaseModel
 from torch_geometric.data import Data
@@ -29,11 +29,11 @@ class Model(T.Module):
             (T.BatchNorm1d(num_features=int(n_times/8)), "x -> x"),
             (T.ReLU(), "x -> x"),
 
-            (G.MeanAggregation(), "x, batch -> x"),
-            (T.GRU(input_size=int(n_times/8), hidden_size=128, num_layers=3, bidirectional=True, dropout=0.3), "x -> x, h"),
+            (G.MinAggregation(), "x, batch -> x"),
+            (T.MultiheadAttention(embed_dim=int(n_times/8), num_heads=8, dropout=0.3), "x, x, x -> x, _"),
 
-            (T.Linear(in_features=256, out_features=n_outputs), "x -> x"),
-            (T.Sigmoid(), "x -> x"),
+            (T.Linear(in_features=int(n_times/8), out_features=n_outputs), "x -> x"),
+            (T.Softmax(dim=-1), "x -> x"),
         ])
 
     def forward(self, *args):
@@ -50,24 +50,25 @@ class GCNBiGRU(BaseModel):
             num_classes=hparams["n_outputs"],
             hparams=hparams,
             model=Model(**hparams),
-            loss=F.binary_cross_entropy
+            loss=fl.FocalLoss(gamma=0.7),
         )
 
         self.edge_select = kwargs["edge_select"]
         self.wave_transform = kwargs["wave_transform"]
 
     def transform(self, item):
-        for i in range(item["data"].shape[0]):
-            percentile_95 = np.percentile(np.abs(item["data"][i]), 95, axis=0, keepdims=True)
-            item["data"][i] = item["data"][i] / percentile_95
-
         source_names = [name.replace("EEG ", "").split("-")[0] for name in item["ch_names"]]
         target_names = [name.replace("EEG ", "").split("-")[1] for name in item["ch_names"]]
-        electrode_positions = np.concatenate([item["sources"], item["targets"]])
+        # electrode_positions = np.concatenate([item["sources"], item["targets"]])
         electrode_names = (source_names + target_names)
         electrodes = list(set(electrode_names))
 
         node_features = np.zeros((len(electrodes), item["data"].shape[1]), dtype=np.float32)
+        for i in range(node_features.shape[0]):
+            neighbours = [idx for idx, ch_name in enumerate(item["ch_names"]) if electrodes[i] in ch_name]
+            weights = item["sources"][neighbours] - item["targets"][neighbours]
+            signals = item["data"][neighbours]
+
         for i in range(item["data"].shape[0]):
             # Convert bipolar wave data to electrode node_features
             power = item["data"][i]
@@ -109,6 +110,10 @@ class GCNBiGRU(BaseModel):
                     # TODO: implementation needed
                     pass
 
+        for i in range(node_features.shape[0]):
+            percentile_95 = np.percentile(np.abs(node_features[i]), 95, axis=0, keepdims=True)
+            node_features[i] = node_features[i] / percentile_95
+
         return Data(
             x=pt.from_numpy(node_features),
             y=pt.tensor(item["labels"].max()),
@@ -119,7 +124,7 @@ class GCNBiGRU(BaseModel):
     def add_arguments(parent_parser):
         parser = parent_parser.add_argument_group("GCNBiGRU")
         parser.add_argument("--n_times", type=int, default=256)
-        parser.add_argument("--n_outputs", type=int, default=1)
+        parser.add_argument("--n_outputs", type=int, default=2)
         parser.add_argument("--edge_select", type=str, default="far", choices=["far", "close", "cluster", "dynamic"])
         parser.add_argument("--wave_transform", type=str, default="raw", choices=["raw", "fourier", "wavelet"])
         return parent_parser
