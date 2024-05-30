@@ -29,24 +29,34 @@ class Model(T.Module):
         elif layer_type == "cheb":
             Conv = G.ChebConv
 
-        Agg = G.MinAggregation
+        Aggr = G.MinAggregation
         if aggregator == "min":
-            Agg = G.MinAggregation
+            Aggr = G.MinAggregation
         elif aggregator == "max":
-            Agg = G.MaxAggregation
+            Aggr = G.MaxAggregation
         elif aggregator == "mean":
-            Agg = G.MeanAggregation
+            Aggr = G.MeanAggregation
         elif aggregator == "median":
-            Agg = G.MedianAggregation
+            Aggr = G.MedianAggregation
 
-        self.model = G.Sequential("x, edge_index, graph_size, graph_length, batch", [
-            (Conv(in_channels=n_times, out_channels=int(n_times/2)), "x, edge_index -> x"),
+        self.model = G.Sequential("x, edge_index, batch", [
+            (Conv(in_channels=int(n_times/1), out_channels=int(n_times/2)), "x, edge_index -> x"),
+            (T.BatchNorm1d(num_features=int(n_times/2)), "x -> x"),
             (T.ReLU(), "x -> x"),
             (Conv(in_channels=int(n_times/2), out_channels=int(n_times/4)), "x, edge_index -> x"),
-            (Agg(), "x, batch -> x"),
-            (T.Dropout(p=0.5), "x -> x"),
-            (T.Linear(in_features=int(n_times/4), out_features=n_outputs), "x -> x"),
-            (T.LogSoftmax(dim=1), "x -> x")
+            (T.BatchNorm1d(num_features=int(n_times/4)), "x -> x"),
+            (T.ReLU(), "x -> x"),
+            (Conv(in_channels=int(n_times/4), out_channels=int(n_times/8)), "x, edge_index -> x"),
+            (T.BatchNorm1d(num_features=int(n_times/8)), "x -> x"),
+            (T.ReLU(), "x -> x"),
+
+            (Aggr(), "x, batch -> x"),
+            (T.MultiheadAttention(embed_dim=int(n_times/8), num_heads=2, dropout=0.3), "x, x, x -> x, _"),
+            # (T.GRU(input_size=int(n_times/8), hidden_size=128, num_layers=3, bidirectional=True, dropout=0.3), "x -> x, h"),
+
+            (T.Linear(in_features=int(n_times/8), out_features=n_outputs), "x -> x"),
+            # (T.Softmax(dim=-1), "x -> x"),
+            (T.Sigmoid(), "x -> x"),
         ])
 
     def forward(self, *args):
@@ -63,86 +73,95 @@ class Brain2Vec(BaseModel):
             num_classes=hparams["n_outputs"],
             hparams=hparams,
             model=Model(**hparams),
-            loss=F.cross_entropy
+            loss=F.binary_cross_entropy
         )
 
+        self.signal_transform = kwargs["signal_transform"]
+        self.node_transform = kwargs["node_transform"]
         self.edge_select = kwargs["edge_select"]
-        self.wave_transform = kwargs["wave_transform"]
 
     def transform(self, item):
-        data = item["data"]
-        labels = item["labels"]
-        sources = item["sources"]
-        targets = item["targets"]
-        ch_names = item["ch_names"]
-
-        source_names = [name.replace("EEG ", "").split("-")[0] for name in ch_names]
-        target_names = [name.replace("EEG ", "").split("-")[1] for name in ch_names]
-
-        electrode_positions = np.concatenate([sources, targets])
-        electrode_names = (source_names + target_names)
-        electrodes = list(set(electrode_names))
-        n_electrodes = len(electrodes)
-        n_times = int(data.shape[1])
-
-        node_features = np.zeros((n_electrodes, n_times), dtype=np.float32)
-        for i in range(data.shape[0]):
-            # Convert bipolar wave data to electrode node_features
-            power = data[i, :]
-
-            if self.wave_transform == "raw":
-                power = power ** 2
-            elif self.wave_transform == "fourier":
-                power = np.abs(np.fft.fft(power)) ** 2
-            elif self.wave_transform == "wavelet":
-                coeffs = pywt.wavedec(power, "db4", level=5)
+        # Signal Transform
+        for i in range(item["data"].shape[0]):
+            if self.signal_transform == "raw":
+                item["data"][i] = item["data"][i] * 1e6
+            elif self.signal_transform == "fourier":
+                item["data"][i] = np.abs(np.fft.fft(item["data"][i]))
+            elif self.signal_transform == "wavelet":
+                coeffs = pywt.wavedec(item["data"][i], "db4", level=5)
                 coeffs[-1] = np.zeros_like(coeffs[-1])
                 coeffs[-2] = np.zeros_like(coeffs[-2])
-                power = pywt.waverec(coeffs, "db4") ** 2
+                item["data"][i] = pywt.waverec(coeffs, "db4") * 1e6
 
-            node_features[electrodes.index(source_names[i])] += power / 2
-            node_features[electrodes.index(target_names[i])] += power / 2
+        # Node Transform
+        node_names = None
+        node_features = None
+        node_positions = None
+        if self.node_transform == "unipolar":
+            source_names = [name.replace("EEG ", "").split("-")[0] for name in item["ch_names"]]
+            target_names = [name.replace("EEG ", "").split("-")[1] for name in item["ch_names"]]
+            all_names = (source_names + target_names)
+            node_names = list(set(all_names))
 
-        adjecancy_matrix = np.zeros((n_electrodes, n_electrodes), dtype=np.float64)
-        for i in range(n_electrodes):
-            # Inter graph connections (const/cluster/dynamic/...)
-            for j in range(n_electrodes):
+            node_features = np.zeros((len(node_names), item["data"].shape[1]), dtype=np.float32)
+            for i in range(len(node_names)):
+                node_features[i] = np.array([
+                    item["data"][idx]
+                    for idx, name in enumerate(item["ch_names"])
+                    if node_names[i] in name
+                ]).mean(axis=0)
+
+            all_positions = np.concatenate([item["sources"], item["targets"]])
+            node_positions = np.zeros((len(node_names), 3), dtype=np.float32)
+            for i in range(len(node_names)):
+                node_positions[i] = all_positions[all_names.index(node_names[i])]
+
+        elif self.node_transform == "bipolar":
+            node_names = [name.replace("EEG ", "") for name in item["ch_names"]]
+            node_features = item["data"]
+            node_positions = np.vstack([
+                np.expand_dims(item["sources"], 0),
+                np.expand_dims(item["targets"], 0)
+            ]).mean(axis=0)
+
+        # Edge Select
+        node_count = node_features.shape[0]
+        adjecancy_matrix = np.zeros((node_count, node_count), dtype=np.float64)
+        for i in range(node_count):
+            for j in range(node_count):
                 if self.edge_select == "far":
-                    y = electrode_positions[electrode_names.index(electrodes[j])]
-                    x = electrode_positions[electrode_names.index(electrodes[i])]
-                    distance = np.linalg.norm(y - x)
-                    adjecancy_matrix[i, j] = 1 if distance > 0.1 else 0
+                    distance = np.linalg.norm(node_positions[j] - node_positions[i])
+                    if distance > 0.1:
+                        adjecancy_matrix[i, j] = 1
                 elif self.edge_select == "close":
-                    y = electrode_positions[electrode_names.index(electrodes[j])]
-                    x = electrode_positions[electrode_names.index(electrodes[i])]
-                    distance = np.linalg.norm(y - x)
-                    adjecancy_matrix[i, j] = 1 if distance < 0.1 else 0
-                elif self.edge_select == "cluster":
-                    data = self.distances
-                    distance = data.loc[(data["from"] == f"EEG {electrodes[i]}") & (data["to"] == f"EEG {electrodes[j]}")]
-                    if len(distance) > 0:
-                        distance = distance.iloc[0]["distance"]
-                        if distance > 0.9:
-                            adjecancy_matrix[i, j] = 1
+                    distance = np.linalg.norm(node_positions[j] - node_positions[i])
+                    if distance < 0.1:
+                        adjecancy_matrix[i, j] = 1
+                elif self.edge_select == "static":
+                    distance = self.distances.loc[(self.distances["from"] == f"EEG {node_names[i]}") & (self.distances["to"] == f"EEG {node_names[j]}")]
+                    if len(distance) > 0 and distance.iloc[0]["distance"] > 0.9:
+                        adjecancy_matrix[i, j] = 1
                 elif self.edge_select == "dynamic":
-                    # TODO: implementation needed
-                    pass
+                    correlation = sp.stats.pearsonr(node_features[i], node_features[j]).statistic
+                    if correlation > 0.3:
+                        adjecancy_matrix[i, j] = 1
 
         return Data(
             x=pt.from_numpy(node_features),
-            y=pt.tensor(labels.max()),
+            y=pt.tensor(item["labels"].max()),
             edge_index=from_scipy_sparse_matrix(sp.sparse.csr_matrix(adjecancy_matrix))[0],
-            graph_size=pt.tensor(n_electrodes),
-            graph_length=1,
         )
 
-    @staticmethod
+    @ staticmethod
     def add_arguments(parent_parser):
         parser = parent_parser.add_argument_group("Brain2Vec")
         parser.add_argument("--n_times", type=int, default=256)
-        parser.add_argument("--n_outputs", type=int, default=2)
+        parser.add_argument("--n_outputs", type=int, default=1)
         parser.add_argument("--layer_type", type=str, default="gcn", choices=["gcn", "gcn2", "gat", "gat2", "cheb"])
         parser.add_argument("--aggregator", type=str, default="min", choices=["min", "max", "mean", "median"])
-        parser.add_argument("--edge_select", type=str, default="far", choices=["far", "close", "cluster", "dynamic"])
-        parser.add_argument("--wave_transform", type=str, default="raw", choices=["raw", "fourier", "wavelet"])
+
+        parser.add_argument("--signal_transform", type=str, default="raw", choices=["raw", "fourier", "wavelet"])
+        parser.add_argument("--node_transform", type=str, default="unipolar", choices=["unipolar", "bipolar"])
+        parser.add_argument("--edge_select", type=str, default="far", choices=["far", "close", "static", "dynamic"])
+
         return parent_parser
