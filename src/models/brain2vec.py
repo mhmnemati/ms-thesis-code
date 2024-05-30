@@ -109,8 +109,8 @@ class Brain2Vec(BaseModel):
             node_features = np.zeros((len(node_names), item["data"].shape[1]), dtype=np.float32)
             for i in range(len(node_names)):
                 node_features[i] = np.array([
-                    item["data"][idx]
-                    for idx, name in enumerate(item["ch_names"])
+                    item["data"][x]
+                    for x, name in enumerate(item["ch_names"])
                     if node_names[i] in name
                 ]).mean(axis=0)
 
@@ -123,7 +123,7 @@ class Brain2Vec(BaseModel):
             node_features = item["data"]
 
         # Edge Select
-        node_count = node_features.shape[0]
+        node_count = len(node_names)
         adjecancy_matrix = np.zeros((node_count, node_count), dtype=np.float64)
         for i in range(node_count):
             # Inter graph connections (far/close/static/dynamic)

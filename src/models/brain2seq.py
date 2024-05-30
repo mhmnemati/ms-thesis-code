@@ -130,12 +130,12 @@ class Brain2Seq(BaseModel):
             for i in range(len(node_names)):
                 node_positions[i] = all_positions[all_names.index(node_names[i])]
 
-            node_features = np.zeros((n_graphs * len(node_names), item["data"].shape[1]), dtype=np.float32)
+            node_features = np.zeros((n_graphs * len(node_names), n_times), dtype=np.float32)
             for idx in range(n_graphs):
                 for i in range(len(node_names)):
                     node_features[idx*len(node_names)+i] = np.array([
-                        item["data"][idx, idx*n_times:(idx+1)*n_times]
-                        for idx, name in enumerate(item["ch_names"])
+                        item["data"][x][idx*n_times:(idx+1)*n_times]
+                        for x, name in enumerate(item["ch_names"])
                         if node_names[i] in name
                     ]).mean(axis=0)
 
@@ -146,13 +146,13 @@ class Brain2Seq(BaseModel):
                 np.expand_dims(item["targets"], 0)
             ]).mean(axis=0)
 
-            node_features = np.zeros((n_graphs * len(node_names), item["data"].shape[1]), dtype=np.float32)
+            node_features = np.zeros((n_graphs * len(node_names), n_times), dtype=np.float32)
             for idx in range(n_graphs):
                 for i in range(len(node_names)):
-                    node_features[idx*len(node_names)+i] = item["data"][idx, idx*n_times:(idx+1)*n_times]
+                    node_features[idx*len(node_names)+i] = item["data"][i][idx*n_times:(idx+1)*n_times]
 
         # Edge Select
-        node_count = node_features.shape[0]
+        node_count = len(node_names)
         adjecancy_matrix = np.zeros((n_graphs * node_count, n_graphs * node_count), dtype=np.float64)
         for idx in range(n_graphs):
             for i in range(node_count):
