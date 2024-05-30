@@ -6,7 +6,6 @@ import torch as pt
 import pandas as pd
 import torch.nn as T
 import torch_geometric.nn as G
-import torch.nn.functional as F
 
 from .base import BaseModel
 from torch_geometric.data import Data
@@ -55,8 +54,7 @@ class Model(T.Module):
             # (T.GRU(input_size=int(n_times/8), hidden_size=128, num_layers=3, bidirectional=True, dropout=0.3), "x -> x, h"),
 
             (T.Linear(in_features=int(n_times/8), out_features=n_outputs), "x -> x"),
-            # (T.Softmax(dim=-1), "x -> x"),
-            (T.Sigmoid(), "x -> x"),
+            (T.Softmax(dim=-1), "x -> x"),
         ])
 
     def forward(self, *args):
@@ -73,7 +71,7 @@ class Brain2Vec(BaseModel):
             num_classes=hparams["n_outputs"],
             hparams=hparams,
             model=Model(**hparams),
-            loss=F.binary_cross_entropy
+            loss=pt.nn.CrossEntropyLoss(),
         )
 
         self.signal_transform = kwargs["signal_transform"]
@@ -95,13 +93,18 @@ class Brain2Vec(BaseModel):
 
         # Node Transform
         node_names = None
-        node_features = None
         node_positions = None
+        node_features = None
         if self.node_transform == "unipolar":
             source_names = [name.replace("EEG ", "").split("-")[0] for name in item["ch_names"]]
             target_names = [name.replace("EEG ", "").split("-")[1] for name in item["ch_names"]]
             all_names = (source_names + target_names)
             node_names = list(set(all_names))
+
+            all_positions = np.concatenate([item["sources"], item["targets"]])
+            node_positions = np.zeros((len(node_names), 3), dtype=np.float32)
+            for i in range(len(node_names)):
+                node_positions[i] = all_positions[all_names.index(node_names[i])]
 
             node_features = np.zeros((len(node_names), item["data"].shape[1]), dtype=np.float32)
             for i in range(len(node_names)):
@@ -111,23 +114,19 @@ class Brain2Vec(BaseModel):
                     if node_names[i] in name
                 ]).mean(axis=0)
 
-            all_positions = np.concatenate([item["sources"], item["targets"]])
-            node_positions = np.zeros((len(node_names), 3), dtype=np.float32)
-            for i in range(len(node_names)):
-                node_positions[i] = all_positions[all_names.index(node_names[i])]
-
         elif self.node_transform == "bipolar":
             node_names = [name.replace("EEG ", "") for name in item["ch_names"]]
-            node_features = item["data"]
             node_positions = np.vstack([
                 np.expand_dims(item["sources"], 0),
                 np.expand_dims(item["targets"], 0)
             ]).mean(axis=0)
+            node_features = item["data"]
 
         # Edge Select
         node_count = node_features.shape[0]
         adjecancy_matrix = np.zeros((node_count, node_count), dtype=np.float64)
         for i in range(node_count):
+            # Inter graph connections (far/close/static/dynamic)
             for j in range(node_count):
                 if self.edge_select == "far":
                     distance = np.linalg.norm(node_positions[j] - node_positions[i])
@@ -152,7 +151,7 @@ class Brain2Vec(BaseModel):
             edge_index=from_scipy_sparse_matrix(sp.sparse.csr_matrix(adjecancy_matrix))[0],
         )
 
-    @ staticmethod
+    @staticmethod
     def add_arguments(parent_parser):
         parser = parent_parser.add_argument_group("Brain2Vec")
         parser.add_argument("--n_times", type=int, default=256)
