@@ -186,7 +186,7 @@ class Brain2Seq(BaseModel):
 
         return Data(
             x=pt.from_numpy(node_features),
-            y=pt.tensor(item["labels"]),
+            y=pt.tensor(item["labels"].max()),
             edge_index=from_scipy_sparse_matrix(sp.sparse.csr_matrix(adjecancy_matrix))[0],
             graph_size=pt.tensor(node_count),
             graph_length=pt.tensor(n_graphs),
