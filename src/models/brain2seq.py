@@ -164,6 +164,9 @@ class Brain2Seq(BaseModel):
 
                 # Inter graph connections (far/close/static/dynamic)
                 for j in range(node_count):
+                    if i == j:
+                        continue
+
                     if self.edge_select == "far":
                         distance = np.linalg.norm(node_positions[j] - node_positions[i])
                         if distance > 0.1:
