@@ -5,6 +5,7 @@ import scipy as sp
 import torch as pt
 import pandas as pd
 import torch.nn as T
+import focal_loss as fl
 import torch_geometric.nn as G
 
 from .base import BaseModel
@@ -88,11 +89,18 @@ class Brain2Seq(BaseModel):
 
     def __init__(self, **kwargs):
         hparams = {k: v for k, v in kwargs.items() if k in ["n_times", "n_outputs", "layer_type", "aggregator"]}
+
+        loss_fn = None
+        if kwargs["loss_fn"] == "ce":
+            loss_fn = pt.nn.CrossEntropyLoss()
+        elif kwargs["loss_fn"] == "focal":
+            loss_fn = fl.FocalLoss(gamma=0.7)
+
         super().__init__(
             num_classes=hparams["n_outputs"],
             hparams=hparams,
             model=Model(**hparams),
-            loss=pt.nn.CrossEntropyLoss(),
+            loss=loss_fn,
         )
 
         self.signal_transform = kwargs["signal_transform"]
@@ -199,6 +207,7 @@ class Brain2Seq(BaseModel):
         parser.add_argument("--n_outputs", type=int, default=2)
         parser.add_argument("--layer_type", type=str, default="gcn", choices=["gcn", "gcn2", "gat", "gat2", "cheb"])
         parser.add_argument("--aggregator", type=str, default="min", choices=["min", "max", "mean", "median"])
+        parser.add_argument("--loss_fn", type=str, default="ce", choices=["ce", "focal"])
 
         parser.add_argument("--signal_transform", type=str, default="raw", choices=["raw", "fourier", "wavelet"])
         parser.add_argument("--node_transform", type=str, default="unipolar", choices=["unipolar", "bipolar"])
