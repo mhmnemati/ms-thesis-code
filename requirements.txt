@@ -7,9 +7,16 @@ braindecode==0.8.1
 focal_loss_torch==0.1.2
 linear-attention-transformer==0.19.1
 tensorboard==2.16.2
-torch_geometric==2.5.2
 PyWavelets==1.6.0
 protobuf==4.25.3
+
+--extra-index-url https://data.pyg.org/whl/torch-2.2.0+cu121.html
+torch_geometric==2.5.2
+pyg_lib
+torch_scatter
+torch_sparse
+torch_cluster
+torch_spline_conv
 
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.2.2
