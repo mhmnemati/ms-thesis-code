@@ -9,7 +9,6 @@ class BaseModel(L.LightningModule):
     def __init__(self, num_classes, hparams, model, loss):
         super().__init__()
         self.save_hyperparameters(hparams)
-        self.num_classes = num_classes
         self.model = model
         self.loss = loss
 

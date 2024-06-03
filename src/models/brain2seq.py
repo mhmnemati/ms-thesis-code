@@ -87,25 +87,28 @@ class Brain2Seq(BaseModel):
     data_loader = DataLoader
     distances = pd.read_csv(f"{os.path.dirname(__file__)}/distances_3d.csv")
 
-    def __init__(self, **kwargs):
-        hparams = {k: v for k, v in kwargs.items() if k in ["n_times", "n_outputs", "layer_type", "aggregator"]}
-
+    def __init__(self, **hparams):
         loss_fn = None
-        if kwargs["loss_fn"] == "ce":
+        if hparams["loss_fn"] == "ce":
             loss_fn = pt.nn.CrossEntropyLoss()
-        elif kwargs["loss_fn"] == "focal":
+        elif hparams["loss_fn"] == "focal":
             loss_fn = fl.FocalLoss(gamma=0.7)
 
         super().__init__(
             num_classes=hparams["n_outputs"],
             hparams=hparams,
-            model=Model(**hparams),
+            model=Model(
+                n_times=hparams["n_times"],
+                n_outputs=hparams["n_outputs"],
+                layer_type=hparams["layer_type"],
+                aggregator=hparams["aggregator"],
+            ),
             loss=loss_fn,
         )
 
-        self.signal_transform = kwargs["signal_transform"]
-        self.node_transform = kwargs["node_transform"]
-        self.edge_select = kwargs["edge_select"]
+        self.signal_transform = hparams["signal_transform"]
+        self.node_transform = hparams["node_transform"]
+        self.edge_select = hparams["edge_select"]
 
     def transform(self, item):
         # Signal Transform

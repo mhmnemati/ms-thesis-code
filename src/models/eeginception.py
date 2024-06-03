@@ -9,12 +9,15 @@ from torch.utils.data import DataLoader
 class EEGInception(BaseModel):
     data_loader = DataLoader
 
-    def __init__(self, **kwargs):
-        hparams = {k: v for k, v in kwargs.items() if k in ["n_times", "n_chans", "n_outputs"]}
+    def __init__(self, **hparams):
         super().__init__(
             num_classes=hparams["n_outputs"],
             hparams=hparams,
-            model=M.EEGInception(**hparams),
+            model=M.EEGInception(
+                n_chans=hparams["n_chans"],
+                n_times=hparams["n_times"],
+                n_outputs=hparams["n_outputs"],
+            ),
             loss=pt.nn.CrossEntropyLoss()
         )
 

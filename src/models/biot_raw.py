@@ -35,12 +35,13 @@ class BIOTRawModel(nn.Module):
 class BIOTRaw(BaseModel):
     data_loader = DataLoader
 
-    def __init__(self, **kwargs):
-        hparams = {k: v for k, v in kwargs.items() if k in ["n_outputs"]}
+    def __init__(self, **hparams):
         super().__init__(
             num_classes=hparams["n_outputs"],
             hparams=hparams,
-            model=BIOTRawModel(**hparams),
+            model=BIOTRawModel(
+                n_outputs=hparams["n_outputs"]
+            ),
             loss=pt.nn.CrossEntropyLoss()
         )
 
