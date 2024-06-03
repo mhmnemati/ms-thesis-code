@@ -32,6 +32,7 @@ parser.add_argument("-m", "--model", type=str, default=list(model_classes.keys()
 parser.add_argument("-d", "--data", type=str, default=data_sets[0], choices=data_sets)
 parser.add_argument("-n", "--num_workers", type=int, default=2)
 parser.add_argument("-b", "--batch_size", type=int, default=8)
+parser.add_argument("-x", "--method", type=str, default="kfold", choices=["kfold", "labels"])
 parser.add_argument("-f", "--folds", type=int, default=5)
 parser.add_argument("-k", "--k", type=int, default=1)
 
@@ -42,8 +43,8 @@ args = parser.parse_args()
 
 model = Model(**vars(args))
 
-train_set = TensorDataset(name=args.data, split="train", folds=args.folds, k=-(args.k), transform=model.transform)
-valid_set = TensorDataset(name=args.data, split="train", folds=args.folds, k=+(args.k), transform=model.transform)
+train_set = TensorDataset(name=args.data, split="train", method=args.method, folds=args.folds, k=-(args.k), transform=model.transform)
+valid_set = TensorDataset(name=args.data, split="train", method=args.method, folds=args.folds, k=+(args.k), transform=model.transform)
 train_loader = model.data_loader(train_set, num_workers=args.num_workers, batch_size=args.batch_size)
 valid_loader = model.data_loader(valid_set, num_workers=args.num_workers, batch_size=args.batch_size)
 
