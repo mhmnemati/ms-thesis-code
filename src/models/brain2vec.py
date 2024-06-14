@@ -41,10 +41,13 @@ class Model(T.Module):
 
         self.model = G.Sequential("x, edge_index, batch", [
             (Conv(in_channels=int(n_times/1), out_channels=int(n_times/2)), "x, edge_index -> x"),
+            (T.BatchNorm1d(num_features=int(n_times/2)), "x -> x"),
             (T.ReLU(), "x -> x"),
             (Conv(in_channels=int(n_times/2), out_channels=int(n_times/4)), "x, edge_index -> x"),
+            (T.BatchNorm1d(num_features=int(n_times/4)), "x -> x"),
             (T.ReLU(), "x -> x"),
             (Conv(in_channels=int(n_times/4), out_channels=int(n_times/8)), "x, edge_index -> x"),
+            (T.BatchNorm1d(num_features=int(n_times/8)), "x -> x"),
             (T.ReLU(), "x -> x"),
 
             (Aggr(), "x, batch -> x"),
