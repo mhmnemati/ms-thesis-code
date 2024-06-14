@@ -54,7 +54,14 @@ class Model(T.Module):
             (T.MultiheadAttention(embed_dim=int(n_times*8), num_heads=2, dropout=0.3), "x, x, x -> x, _"),
             # (T.GRU(input_size=int(n_times/8), hidden_size=128, num_layers=3, bidirectional=True, dropout=0.3), "x -> x, h"),
 
-            (T.Linear(in_features=int(n_times*8), out_features=n_outputs), "x -> x"),
+            (T.Linear(in_features=int(n_times*8), out_features=n_times*4), "x -> x"),
+            (T.BatchNorm1d(num_features=int(n_times*2)), "x -> x"),
+            (T.ReLU(), "x -> x"),
+            (T.Linear(in_features=int(n_times*4), out_features=n_times*2), "x -> x"),
+            (T.BatchNorm1d(num_features=int(n_times*2)), "x -> x"),
+            (T.ReLU(), "x -> x"),
+            (T.Linear(in_features=int(n_times*2), out_features=n_outputs), "x -> x"),
+            (T.BatchNorm1d(num_features=int(n_times*2)), "x -> x"),
             (T.Softmax(dim=-1), "x -> x"),
         ])
 
