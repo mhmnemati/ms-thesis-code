@@ -38,7 +38,7 @@ class BaseModel(L.LightningModule):
     def configure_optimizers(self):
         optimizer = pt.optim.Adam(self.parameters(), lr=1e-4, weight_decay=1e-2)
         scheduler = pt.optim.lr_scheduler.StepLR(optimizer, step_size=500, gamma=0.3)
-        return [optimizer], []
+        return [optimizer], [scheduler]
 
     def on_train_start(self):
         self.logger.log_hyperparams(self.hparams, {
