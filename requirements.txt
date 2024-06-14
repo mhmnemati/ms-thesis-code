@@ -10,16 +10,16 @@ tensorboard==2.16.2
 PyWavelets==1.6.0
 protobuf==4.25.3
 
---extra-index-url https://data.pyg.org/whl/torch-2.2.0+cu121.html
-torch_geometric==2.5.2
-pyg_lib
-torch_scatter
-torch_sparse
-torch_cluster
-torch_spline_conv
-
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.2.2
 # torchtext==2.2.2
 # torchaudio==2.2.2
 # torchvision==2.2.2
+
+torch_geometric==2.5.2
+-f https://data.pyg.org/whl/torch-2.2.0+cpu.html
+pyg_lib
+torch_scatter
+torch_sparse
+torch_cluster
+torch_spline_conv
