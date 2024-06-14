@@ -95,12 +95,12 @@ class Brain2Vec(BaseModel):
             if self.signal_transform == "raw":
                 item["data"][i] = item["data"][i] * 1e6
             elif self.signal_transform == "fourier":
-                item["data"][i] = np.abs(np.fft.fft(item["data"][i]))
+                item["data"][i] = np.abs(np.fft.fft(item["data"][i] * 1e6))
             elif self.signal_transform == "wavelet":
-                coeffs = pywt.wavedec(item["data"][i], "db4", level=5)
+                coeffs = pywt.wavedec(item["data"][i] * 1e6, "db4", level=5)
                 coeffs[-1] = np.zeros_like(coeffs[-1])
                 coeffs[-2] = np.zeros_like(coeffs[-2])
-                item["data"][i] = pywt.waverec(coeffs, "db4") * 1e6
+                item["data"][i] = pywt.waverec(coeffs, "db4")
 
         # Node Transform
         node_names = None
