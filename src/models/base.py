@@ -1,6 +1,7 @@
 import torch as pt
 import lightning as L
 import torchmetrics as M
+import matplotlib.pyplot as plt
 
 from torch_geometric.data.batch import Batch
 
@@ -36,8 +37,8 @@ class BaseModel(L.LightningModule):
         return self.model(*args)
 
     def configure_optimizers(self):
-        optimizer = pt.optim.Adam(self.parameters(), lr=1e-4, weight_decay=1e-2)
-        scheduler = pt.optim.lr_scheduler.StepLR(optimizer, step_size=500, gamma=0.3)
+        optimizer = pt.optim.Adam(self.parameters(), lr=1e-2)
+        scheduler = pt.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.9)
         return [optimizer], [scheduler]
 
     def on_train_start(self):
@@ -95,3 +96,4 @@ class BaseModel(L.LightningModule):
         fig, _ = self.confusion_matrix.plot()
         self.logger.experiment.add_figure("confusion_matrix", fig, self.current_epoch)
         self.confusion_matrix.reset()
+        plt.close(fig)

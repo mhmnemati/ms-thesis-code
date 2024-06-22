@@ -27,7 +27,7 @@ data_sets = [
 parser = argparse.ArgumentParser(description="Train model on data.")
 
 parser.add_argument("-v", "--version", type=str, default=None)
-parser.add_argument("-e", "--epochs", type=int, default=10)
+parser.add_argument("-e", "--epochs", type=int, default=50)
 parser.add_argument("-m", "--model", type=str, default=list(model_classes.keys())[0], choices=list(model_classes.keys()))
 parser.add_argument("-d", "--data", type=str, default=data_sets[0], choices=data_sets)
 parser.add_argument("-n", "--num_workers", type=int, default=2)
