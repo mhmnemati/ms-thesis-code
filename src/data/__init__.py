@@ -29,6 +29,7 @@ class TensorDataset(Dataset):
                 parts = np.concatenate(part_shards[:abs(k)-1] + part_shards[abs(k):])
 
             self.items = list(filter(lambda item: any([p in item for p in parts]), items))
+
         elif method == "labels":
             partitions = {}
             for item in items:

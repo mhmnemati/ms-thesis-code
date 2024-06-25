@@ -15,46 +15,37 @@ from torch_geometric.utils.convert import from_scipy_sparse_matrix
 
 
 class Model(T.Module):
-    def __init__(self, n_times, n_outputs, layer_type, aggregator):
+    def __init__(self, n_times, n_outputs):
         super().__init__()
-        Conv = G.GCNConv
-        if layer_type == "gcn":
-            Conv = G.GCNConv
-        elif layer_type == "gcn2":
-            Conv = G.GCN2Conv
-        elif layer_type == "gat":
-            Conv = G.GATConv
-        elif layer_type == "gat2":
-            Conv = G.GATv2Conv
-        elif layer_type == "cheb":
-            Conv = G.ChebConv
-
-        Aggr = G.MinAggregation
-        if aggregator == "min":
-            Aggr = G.MinAggregation
-        elif aggregator == "max":
-            Aggr = G.MaxAggregation
-        elif aggregator == "mean":
-            Aggr = G.MeanAggregation
-        elif aggregator == "median":
-            Aggr = G.MedianAggregation
 
         self.model = G.Sequential("x, edge_index, batch", [
-            (Conv(in_channels=int(n_times/1), out_channels=int(n_times/2)), "x, edge_index -> x"),
-            (T.BatchNorm1d(num_features=int(n_times/2)), "x -> x"),
-            (T.ReLU(), "x -> x"),
-            (Conv(in_channels=int(n_times/2), out_channels=int(n_times/4)), "x, edge_index -> x"),
-            (T.BatchNorm1d(num_features=int(n_times/4)), "x -> x"),
-            (T.ReLU(), "x -> x"),
-            (Conv(in_channels=int(n_times/4), out_channels=int(n_times/8)), "x, edge_index -> x"),
-            (T.BatchNorm1d(num_features=int(n_times/8)), "x -> x"),
-            (T.ReLU(), "x -> x"),
+            # (lambda x: x.unsqueeze(dim=0), "x -> x"),
+            # (T.Conv2d(in_channels=1, out_channels=1, kernel_size=(1, 4)), "x -> x"),
+            # (T.LeakyReLU(), "x -> x"),
+            # (T.Conv2d(in_channels=1, out_channels=1, kernel_size=(1, 8)), "x -> x"),
+            # (T.LeakyReLU(), "x -> x"),
+            # (T.Conv2d(in_channels=1, out_channels=1, kernel_size=(1, 16)), "x -> x"),
+            # (T.LeakyReLU(), "x -> x"),
+            # (lambda x: x.squeeze(dim=0), "x -> x"),
 
-            (Aggr(), "x, batch -> x"),
-            # (T.MultiheadAttention(embed_dim=int(n_times/8), num_heads=2, dropout=0.3), "x, x, x -> x, _"),
-            # (T.GRU(input_size=int(n_times/8), hidden_size=128, num_layers=3, bidirectional=True, dropout=0.3), "x -> x, h"),
+            # (G.GCNConv(in_channels=int(n_times - (4 + 8 + 16) + 3), out_channels=int(n_times*4)), "x, edge_index -> x"),
+            (G.GCNConv(in_channels=int(n_times), out_channels=int(n_times*4)), "x, edge_index -> x"),
+            (T.BatchNorm1d(num_features=int(n_times*4)), "x -> x"),
+            (T.LeakyReLU(), "x -> x"),
+            (G.GCNConv(in_channels=int(n_times*4), out_channels=int(n_times*2)), "x, edge_index -> x"),
+            (T.BatchNorm1d(num_features=int(n_times*2)), "x -> x"),
+            (T.LeakyReLU(), "x -> x"),
+            (G.GCNConv(in_channels=int(n_times*2), out_channels=int(n_times*1)), "x, edge_index -> x"),
+            (T.BatchNorm1d(num_features=int(n_times*1)), "x -> x"),
+            (T.LeakyReLU(), "x -> x"),
 
-            (T.Linear(in_features=int(n_times/8), out_features=n_outputs), "x -> x"),
+            (G.MeanAggregation(), "x, batch -> x"),
+            # (T.MultiheadAttention(embed_dim=int(n_times*1), num_heads=2, dropout=0.3), "x, x, x -> x, _"),
+
+            (lambda x: x.unsqueeze(dim=-1), "x -> x"),
+            (T.GRU(input_size=1, hidden_size=128, num_layers=3, bidirectional=True, batch_first=True, dropout=0.3), "x -> x, h"),
+            (lambda x: x[:, -1, :], "x -> x"),
+            (T.Linear(in_features=128*2, out_features=n_outputs), "x -> x"),
             (T.Softmax(dim=-1), "x -> x"),
         ])
 
@@ -79,8 +70,6 @@ class Brain2Vec(BaseModel):
             model=Model(
                 n_times=hparams["n_times"],
                 n_outputs=hparams["n_outputs"],
-                layer_type=hparams["layer_type"],
-                aggregator=hparams["aggregator"],
             ),
             loss=loss_fn,
         )
@@ -88,19 +77,23 @@ class Brain2Vec(BaseModel):
         self.signal_transform = hparams["signal_transform"]
         self.node_transform = hparams["node_transform"]
         self.edge_select = hparams["edge_select"]
+        self.threshold = hparams["threshold"]
 
     def transform(self, item):
         # Signal Transform
+
+        # Normalization: Method 1
+        # item["data"] = item["data"] * 1e6
+
+        # Normalization: Method 2
+        # for i in range(item["data"].shape[0]):
+        #     percentile_95 = np.percentile(np.abs(item["data"][i]), 95, axis=0, keepdims=True)
+        #     item["data"][i] = item["data"][i] / percentile_95
+
+        # Normalization: Method 3
         for i in range(item["data"].shape[0]):
-            if self.signal_transform == "raw":
-                item["data"][i] = item["data"][i] * 1e6
-            elif self.signal_transform == "fourier":
-                item["data"][i] = np.abs(np.fft.fft(item["data"][i] * 1e6))
-            elif self.signal_transform == "wavelet":
-                coeffs = pywt.wavedec(item["data"][i] * 1e6, "db4", level=5)
-                coeffs[-1] = np.zeros_like(coeffs[-1])
-                coeffs[-2] = np.zeros_like(coeffs[-2])
-                item["data"][i] = pywt.waverec(coeffs, "db4")
+            norm = np.linalg.norm(item["data"][i])
+            item["data"][i] = item["data"][i] / norm
 
         # Node Transform
         node_names = None
@@ -144,25 +137,36 @@ class Brain2Vec(BaseModel):
 
                 if self.edge_select == "far":
                     distance = np.linalg.norm(node_positions[j] - node_positions[i])
-                    if distance > 0.1:
+                    if distance > self.threshold:
                         adjecancy_matrix[i, j] = 1
                 elif self.edge_select == "close":
                     distance = np.linalg.norm(node_positions[j] - node_positions[i])
-                    if distance < 0.1:
+                    if distance < self.threshold:
                         adjecancy_matrix[i, j] = 1
                 elif self.edge_select == "static":
                     distance = self.distances.loc[(self.distances["from"] == f"EEG {node_names[i]}") & (self.distances["to"] == f"EEG {node_names[j]}")]
-                    if len(distance) > 0 and distance.iloc[0]["distance"] > 0.9:
+                    if len(distance) > 0 and distance.iloc[0]["distance"] > self.threshold:
                         adjecancy_matrix[i, j] = 1
                 elif self.edge_select == "dynamic":
-                    correlation = sp.stats.pearsonr(node_features[i], node_features[j]).statistic
-                    if correlation > 0.3:
-                        adjecancy_matrix[i, j] = 1
+                    with np.errstate(divide="ignore", invalid="ignore"):
+                        correlation = np.corrcoef(node_features[[i, j]])
+                        if correlation[0, 1] > self.threshold:
+                            adjecancy_matrix[i, j] = 1
+
+        for i in range(node_features.shape[0]):
+            if self.signal_transform == "fourier":
+                node_features[i] = np.abs(np.fft.fft(node_features[i]))
+            elif self.signal_transform == "wavelet":
+                coeffs = pywt.wavedec(node_features[i], "db4", level=5)
+                coeffs[-1] = np.zeros_like(coeffs[-1])
+                coeffs[-2] = np.zeros_like(coeffs[-2])
+                node_features[i] = pywt.waverec(coeffs, "db4")
 
         return Data(
             x=pt.from_numpy(node_features),
             y=pt.tensor(item["labels"].max()),
             edge_index=from_scipy_sparse_matrix(sp.sparse.csr_matrix(adjecancy_matrix))[0],
+            node_labels=["A" for idx in range(node_features.shape[0])]
         )
 
     @staticmethod
@@ -170,12 +174,11 @@ class Brain2Vec(BaseModel):
         parser = parent_parser.add_argument_group("Brain2Vec")
         parser.add_argument("--n_times", type=int, default=256)
         parser.add_argument("--n_outputs", type=int, default=2)
-        parser.add_argument("--layer_type", type=str, default="gcn", choices=["gcn", "gcn2", "gat", "gat2", "cheb"])
-        parser.add_argument("--aggregator", type=str, default="min", choices=["min", "max", "mean", "median"])
         parser.add_argument("--loss_fn", type=str, default="ce", choices=["ce", "focal"])
 
         parser.add_argument("--signal_transform", type=str, default="raw", choices=["raw", "fourier", "wavelet"])
         parser.add_argument("--node_transform", type=str, default="unipolar", choices=["unipolar", "bipolar"])
         parser.add_argument("--edge_select", type=str, default="far", choices=["far", "close", "static", "dynamic"])
+        parser.add_argument("--threshold", type=float, default=0.1)
 
         return parent_parser
