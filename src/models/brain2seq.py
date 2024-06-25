@@ -15,29 +15,8 @@ from torch_geometric.utils.convert import from_scipy_sparse_matrix
 
 
 class Model(T.Module):
-    def __init__(self, n_times, n_outputs, layer_type, aggregator):
+    def __init__(self, n_times, n_outputs):
         super().__init__()
-        Conv = G.GCNConv
-        if layer_type == "gcn":
-            Conv = G.GCNConv
-        elif layer_type == "gcn2":
-            Conv = G.GCN2Conv
-        elif layer_type == "gat":
-            Conv = G.GATConv
-        elif layer_type == "gat2":
-            Conv = G.GATv2Conv
-        elif layer_type == "cheb":
-            Conv = G.ChebConv
-
-        Aggr = G.MinAggregation
-        if aggregator == "min":
-            Aggr = G.MinAggregation
-        elif aggregator == "max":
-            Aggr = G.MaxAggregation
-        elif aggregator == "mean":
-            Aggr = G.MeanAggregation
-        elif aggregator == "median":
-            Aggr = G.MedianAggregation
 
         def batch_convert(graph_size, graph_length):
             repeats = pt.repeat_interleave(graph_size, graph_length)
@@ -51,13 +30,13 @@ class Model(T.Module):
             return pt.repeat_interleave(values, repeats)
 
         self.model = G.Sequential("x, edge_index, graph_size, graph_length, batch", [
-            (Conv(in_channels=int(n_times/1), out_channels=int(n_times/2)), "x, edge_index -> x"),
+            (G.GCNConv(in_channels=int(n_times/1), out_channels=int(n_times/2)), "x, edge_index -> x"),
             (T.BatchNorm1d(num_features=int(n_times/2)), "x -> x"),
             (T.ReLU(), "x -> x"),
-            (Conv(in_channels=int(n_times/2), out_channels=int(n_times/4)), "x, edge_index -> x"),
+            (G.GCNConv(in_channels=int(n_times/2), out_channels=int(n_times/4)), "x, edge_index -> x"),
             (T.BatchNorm1d(num_features=int(n_times/4)), "x -> x"),
             (T.ReLU(), "x -> x"),
-            (Conv(in_channels=int(n_times/4), out_channels=int(n_times/8)), "x, edge_index -> x"),
+            (G.GCNConv(in_channels=int(n_times/4), out_channels=int(n_times/8)), "x, edge_index -> x"),
             (T.BatchNorm1d(num_features=int(n_times/8)), "x -> x"),
             (T.ReLU(), "x -> x"),
 
@@ -69,7 +48,7 @@ class Model(T.Module):
             # batch_new = [-,-,-,-,-,-,0,0,0,-,-,-,-,-,-, -,-,1,1,-,-,-,-, -,2,-] = (26)
             # Caution: this implementation is highly optimized and complex
             (batch_convert, "graph_size, graph_length -> batch"),
-            (Aggr(), "x, batch -> x"),
+            (G.MeanAggregation(), "x, batch -> x"),
             (lambda x: x[:-1, :], "x -> x"),
 
             (T.MultiheadAttention(embed_dim=int(n_times/8), num_heads=2, dropout=0.3), "x, x, x -> x, _"),
@@ -100,8 +79,6 @@ class Brain2Seq(BaseModel):
             model=Model(
                 n_times=hparams["n_times"],
                 n_outputs=hparams["n_outputs"],
-                layer_type=hparams["layer_type"],
-                aggregator=hparams["aggregator"],
             ),
             loss=loss_fn,
         )
@@ -109,6 +86,7 @@ class Brain2Seq(BaseModel):
         self.signal_transform = hparams["signal_transform"]
         self.node_transform = hparams["node_transform"]
         self.edge_select = hparams["edge_select"]
+        self.threshold = hparams["threshold"]
 
     def transform(self, item):
         # Signal Transform
@@ -180,20 +158,21 @@ class Brain2Seq(BaseModel):
 
                     if self.edge_select == "far":
                         distance = np.linalg.norm(node_positions[j] - node_positions[i])
-                        if distance > 0.1:
+                        if distance > self.threshold:
                             adjecancy_matrix[idx*node_count+i, idx*node_count+j] = 1
                     elif self.edge_select == "close":
                         distance = np.linalg.norm(node_positions[j] - node_positions[i])
-                        if distance < 0.1:
+                        if distance < self.threshold:
                             adjecancy_matrix[idx*node_count+i, idx*node_count+j] = 1
                     elif self.edge_select == "static":
                         distance = self.distances.loc[(self.distances["from"] == f"EEG {node_names[i]}") & (self.distances["to"] == f"EEG {node_names[j]}")]
-                        if len(distance) > 0 and distance.iloc[0]["distance"] > 0.9:
+                        if len(distance) > 0 and distance.iloc[0]["distance"] > self.threshold:
                             adjecancy_matrix[idx*node_count+i, idx*node_count+j] = 1
                     elif self.edge_select == "dynamic":
-                        correlation = sp.stats.pearsonr(node_features[idx*node_count+i], node_features[idx*node_count+j]).statistic
-                        if correlation > 0.3:
-                            adjecancy_matrix[idx*node_count+i, idx*node_count+j] = 1
+                        with np.errstate(divide="ignore", invalid="ignore"):
+                            correlation = np.corrcoef(node_features[[i, j]])
+                            if correlation[0, 1] > self.threshold:
+                                adjecancy_matrix[idx*node_count+i, idx*node_count+j] = 1
 
         return Data(
             x=pt.from_numpy(node_features),
@@ -201,6 +180,7 @@ class Brain2Seq(BaseModel):
             edge_index=from_scipy_sparse_matrix(sp.sparse.csr_matrix(adjecancy_matrix))[0],
             graph_size=pt.tensor(node_count),
             graph_length=pt.tensor(n_graphs),
+            node_positions=pt.from_numpy(node_positions),
         )
 
     @staticmethod
@@ -208,12 +188,11 @@ class Brain2Seq(BaseModel):
         parser = parent_parser.add_argument_group("Brain2Seq")
         parser.add_argument("--n_times", type=int, default=256)
         parser.add_argument("--n_outputs", type=int, default=2)
-        parser.add_argument("--layer_type", type=str, default="gcn", choices=["gcn", "gcn2", "gat", "gat2", "cheb"])
-        parser.add_argument("--aggregator", type=str, default="min", choices=["min", "max", "mean", "median"])
         parser.add_argument("--loss_fn", type=str, default="ce", choices=["ce", "focal"])
 
         parser.add_argument("--signal_transform", type=str, default="raw", choices=["raw", "fourier", "wavelet"])
         parser.add_argument("--node_transform", type=str, default="unipolar", choices=["unipolar", "bipolar"])
         parser.add_argument("--edge_select", type=str, default="far", choices=["far", "close", "static", "dynamic"])
+        parser.add_argument("--threshold", type=float, default=0.1)
 
         return parent_parser

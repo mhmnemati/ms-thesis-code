@@ -166,7 +166,7 @@ class Brain2Vec(BaseModel):
             x=pt.from_numpy(node_features),
             y=pt.tensor(item["labels"].max()),
             edge_index=from_scipy_sparse_matrix(sp.sparse.csr_matrix(adjecancy_matrix))[0],
-            node_labels=["A" for idx in range(node_features.shape[0])]
+            node_positions=pt.from_numpy(node_positions),
         )
 
     @staticmethod
