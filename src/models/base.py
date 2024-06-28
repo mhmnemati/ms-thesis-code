@@ -1,8 +1,10 @@
+import warnings
 import torch as pt
 import lightning as L
 import torchmetrics as M
 import matplotlib.pyplot as plt
 
+from captum.attr import IntegratedGradients
 from torch_geometric.data.batch import Batch
 
 
@@ -32,6 +34,8 @@ class BaseModel(L.LightningModule):
 
         self.training_metrics = self.metrics.clone(prefix="training/")
         self.validation_metrics = self.metrics.clone(prefix="validation/")
+
+        self.test_interpreter = IntegratedGradients(model)
 
     def forward(self, *args):
         return self.model(*args)
@@ -74,23 +78,31 @@ class BaseModel(L.LightningModule):
         if len(pred.shape) > 1:
             pred = pred.argmax(-1)
 
-        return (batch_size, loss, pred, y)
+        return (batch_size, args, loss, pred, y)
 
-    def training_step(self, batch, idx):
-        batch_size, loss, pred, y = self.general_step(batch)
+    def training_step(self, batch):
+        batch_size, _, loss, pred, y = self.general_step(batch)
 
         self.log("training/loss", loss, batch_size=batch_size, prog_bar=True, sync_dist=True)
         self.log_dict(self.training_metrics(pred, y), batch_size=batch_size, on_step=False, on_epoch=True, sync_dist=True)
 
         return loss
 
-    def validation_step(self, batch, idx):
-        batch_size, loss, pred, y = self.general_step(batch)
+    def validation_step(self, batch):
+        batch_size, _, loss, pred, y = self.general_step(batch)
 
         self.log("validation/loss", loss, batch_size=batch_size, sync_dist=True)
         self.log_dict(self.validation_metrics(pred, y), batch_size=batch_size, sync_dist=True)
 
         self.confusion_matrix.update(pred, y)
+
+    def test_step(self, batch):
+        batch_size, args, _, pred, y = self.general_step(batch)
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            attrs, = self.interpreter.attribute(internal_batch_size=batch_size, inputs=args[:1], additional_forward_args=args[1:], target=y)
+            print(pt.mean(attrs, dim=-1))
 
     def on_validation_epoch_end(self):
         fig, _ = self.confusion_matrix.plot()

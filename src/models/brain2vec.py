@@ -7,6 +7,7 @@ import pandas as pd
 import torch.nn as T
 import focal_loss as fl
 import torch_geometric.nn as G
+import torch.nn.functional as F
 
 from .base import BaseModel
 from torch_geometric.data import Data
@@ -18,39 +19,49 @@ class Model(T.Module):
     def __init__(self, n_times, n_outputs):
         super().__init__()
 
-        self.model = G.Sequential("x, edge_index, batch", [
-            # (lambda x: x.unsqueeze(dim=0), "x -> x"),
-            # (T.Conv2d(in_channels=1, out_channels=1, kernel_size=(1, 4)), "x -> x"),
-            # (T.LeakyReLU(), "x -> x"),
-            # (T.Conv2d(in_channels=1, out_channels=1, kernel_size=(1, 8)), "x -> x"),
-            # (T.LeakyReLU(), "x -> x"),
-            # (T.Conv2d(in_channels=1, out_channels=1, kernel_size=(1, 16)), "x -> x"),
-            # (T.LeakyReLU(), "x -> x"),
-            # (lambda x: x.squeeze(dim=0), "x -> x"),
+        # G.GCNConv(in_channels=int(n_times - (4 + 8 + 16) + 3), out_channels=int(n_times*4))
+        self.gcn1 = G.GCNConv(in_channels=int(n_times), out_channels=int(n_times*4))
+        self.norm1 = T.BatchNorm1d(num_features=int(n_times*4))
+        self.gcn2 = G.GCNConv(in_channels=int(n_times*4), out_channels=int(n_times*2))
+        self.norm2 = T.BatchNorm1d(num_features=int(n_times*2))
+        self.gcn3 = G.GCNConv(in_channels=int(n_times*2), out_channels=int(n_times*1))
+        self.norm3 = T.BatchNorm1d(num_features=int(n_times*1))
 
-            # (G.GCNConv(in_channels=int(n_times - (4 + 8 + 16) + 3), out_channels=int(n_times*4)), "x, edge_index -> x"),
-            (G.GCNConv(in_channels=int(n_times), out_channels=int(n_times*4)), "x, edge_index -> x"),
-            (T.BatchNorm1d(num_features=int(n_times*4)), "x -> x"),
-            (T.LeakyReLU(), "x -> x"),
-            (G.GCNConv(in_channels=int(n_times*4), out_channels=int(n_times*2)), "x, edge_index -> x"),
-            (T.BatchNorm1d(num_features=int(n_times*2)), "x -> x"),
-            (T.LeakyReLU(), "x -> x"),
-            (G.GCNConv(in_channels=int(n_times*2), out_channels=int(n_times*1)), "x, edge_index -> x"),
-            (T.BatchNorm1d(num_features=int(n_times*1)), "x -> x"),
-            (T.LeakyReLU(), "x -> x"),
+        self.bigru = T.GRU(input_size=1, hidden_size=4, num_layers=3, bidirectional=True, batch_first=True, dropout=0.3)
 
-            (G.MeanAggregation(), "x, batch -> x"),
-            # (T.MultiheadAttention(embed_dim=int(n_times*1), num_heads=2, dropout=0.3), "x, x, x -> x, _"),
+        self.dense = T.Linear(in_features=4*2, out_features=n_outputs)
 
-            (lambda x: x.unsqueeze(dim=-1), "x -> x"),
-            (T.GRU(input_size=1, hidden_size=128, num_layers=3, bidirectional=True, batch_first=True, dropout=0.3), "x -> x, h"),
-            (lambda x: x[:, -1, :], "x -> x"),
-            (T.Linear(in_features=128*2, out_features=n_outputs), "x -> x"),
-            (T.Softmax(dim=-1), "x -> x"),
-        ])
+    def forward(self, x, edge_index, batch):
+        x = self.gcn1(x, edge_index)
+        x = self.norm1(x)
+        x = F.leaky_relu(x)
 
-    def forward(self, *args):
-        return self.model(*args)
+        x = self.gcn2(x, edge_index)
+        x = self.norm2(x)
+        x = F.leaky_relu(x)
+
+        x = self.gcn3(x, edge_index)
+        x = self.norm3(x)
+        x = F.leaky_relu(x)
+
+        # (21, 256)
+        x = G.global_mean_pool(x, batch)
+        # (256)
+
+        # (256, 1)
+        x = x.unsqueeze(dim=-1)
+
+        # (256, 8)
+        x, _ = self.bigru(x)
+
+        # (8)
+        x = pt.mean(x, dim=1)
+        # x = x[:, -1, :]
+
+        x = self.dense(x)
+        x = F.softmax(x, dim=-1)
+
+        return x
 
 
 class Brain2Vec(BaseModel):
@@ -83,7 +94,7 @@ class Brain2Vec(BaseModel):
         # Signal Transform
 
         # Normalization: Method 1
-        # item["data"] = item["data"] * 1e6
+        item["data"] = item["data"] * 1e6
 
         # Normalization: Method 2
         # for i in range(item["data"].shape[0]):
@@ -91,9 +102,9 @@ class Brain2Vec(BaseModel):
         #     item["data"][i] = item["data"][i] / percentile_95
 
         # Normalization: Method 3
-        for i in range(item["data"].shape[0]):
-            norm = np.linalg.norm(item["data"][i])
-            item["data"][i] = item["data"][i] / norm
+        # for i in range(item["data"].shape[0]):
+        #     norm = np.linalg.norm(item["data"][i])
+        #     item["data"][i] = item["data"][i] / norm
 
         # Node Transform
         node_names = None
@@ -135,23 +146,21 @@ class Brain2Vec(BaseModel):
                 if i == j:
                     continue
 
-                if self.edge_select == "far":
-                    distance = np.linalg.norm(node_positions[j] - node_positions[i])
-                    if distance > self.threshold:
-                        adjecancy_matrix[i, j] = 1
-                elif self.edge_select == "close":
-                    distance = np.linalg.norm(node_positions[j] - node_positions[i])
-                    if distance < self.threshold:
-                        adjecancy_matrix[i, j] = 1
-                elif self.edge_select == "static":
+                value = 0
+                if "norm_" in self.edge_select:
+                    value = np.linalg.norm(node_positions[j] - node_positions[i])
+                if "static_" in self.edge_select:
                     distance = self.distances.loc[(self.distances["from"] == f"EEG {node_names[i]}") & (self.distances["to"] == f"EEG {node_names[j]}")]
-                    if len(distance) > 0 and distance.iloc[0]["distance"] > self.threshold:
-                        adjecancy_matrix[i, j] = 1
-                elif self.edge_select == "dynamic":
+                    if len(distance) > 0:
+                        value = distance.iloc[0]["distance"]
+                if "dynamic_" in self.edge_select:
                     with np.errstate(divide="ignore", invalid="ignore"):
-                        correlation = np.corrcoef(node_features[[i, j]])
-                        if correlation[0, 1] > self.threshold:
-                            adjecancy_matrix[i, j] = 1
+                        value = np.corrcoef(node_features[[i, j]])[0, 1]
+
+                if "_gt" in self.edge_select and value > self.threshold:
+                    adjecancy_matrix[i, j] = 1
+                if "_lt" in self.edge_select and value < self.threshold:
+                    adjecancy_matrix[i, j] = 1
 
         for i in range(node_features.shape[0]):
             if self.signal_transform == "fourier":
@@ -178,7 +187,7 @@ class Brain2Vec(BaseModel):
 
         parser.add_argument("--signal_transform", type=str, default="raw", choices=["raw", "fourier", "wavelet"])
         parser.add_argument("--node_transform", type=str, default="unipolar", choices=["unipolar", "bipolar"])
-        parser.add_argument("--edge_select", type=str, default="far", choices=["far", "close", "static", "dynamic"])
+        parser.add_argument("--edge_select", type=str, default="norm_lt", choices=["norm_lt", "norm_gt", "static_lt", "static_gt", "dynamic_lt", "dynamic_gt"])
         parser.add_argument("--threshold", type=float, default=0.1)
 
         return parent_parser

@@ -156,23 +156,21 @@ class Brain2Seq(BaseModel):
                     if i == j:
                         continue
 
-                    if self.edge_select == "far":
-                        distance = np.linalg.norm(node_positions[j] - node_positions[i])
-                        if distance > self.threshold:
-                            adjecancy_matrix[idx*node_count+i, idx*node_count+j] = 1
-                    elif self.edge_select == "close":
-                        distance = np.linalg.norm(node_positions[j] - node_positions[i])
-                        if distance < self.threshold:
-                            adjecancy_matrix[idx*node_count+i, idx*node_count+j] = 1
-                    elif self.edge_select == "static":
+                    value = 0
+                    if "norm_" in self.edge_select:
+                        value = np.linalg.norm(node_positions[j] - node_positions[i])
+                    if "static_" in self.edge_select:
                         distance = self.distances.loc[(self.distances["from"] == f"EEG {node_names[i]}") & (self.distances["to"] == f"EEG {node_names[j]}")]
-                        if len(distance) > 0 and distance.iloc[0]["distance"] > self.threshold:
-                            adjecancy_matrix[idx*node_count+i, idx*node_count+j] = 1
-                    elif self.edge_select == "dynamic":
+                        if len(distance) > 0:
+                            value = distance.iloc[0]["distance"]
+                    if "dynamic_" in self.edge_select:
                         with np.errstate(divide="ignore", invalid="ignore"):
-                            correlation = np.corrcoef(node_features[[i, j]])
-                            if correlation[0, 1] > self.threshold:
-                                adjecancy_matrix[idx*node_count+i, idx*node_count+j] = 1
+                            value = np.corrcoef(node_features[[i, j]])[0, 1]
+
+                    if "_gt" in self.edge_select and value > self.threshold:
+                        adjecancy_matrix[idx*node_count+i, idx*node_count+j] = 1
+                    if "_lt" in self.edge_select and value < self.threshold:
+                        adjecancy_matrix[idx*node_count+i, idx*node_count+j] = 1
 
         return Data(
             x=pt.from_numpy(node_features),
@@ -192,7 +190,7 @@ class Brain2Seq(BaseModel):
 
         parser.add_argument("--signal_transform", type=str, default="raw", choices=["raw", "fourier", "wavelet"])
         parser.add_argument("--node_transform", type=str, default="unipolar", choices=["unipolar", "bipolar"])
-        parser.add_argument("--edge_select", type=str, default="far", choices=["far", "close", "static", "dynamic"])
+        parser.add_argument("--edge_select", type=str, default="norm_lt", choices=["norm_lt", "norm_gt", "static_lt", "static_gt", "dynamic_lt", "dynamic_gt"])
         parser.add_argument("--threshold", type=float, default=0.1)
 
         return parent_parser
