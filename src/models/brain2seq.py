@@ -140,6 +140,15 @@ class Brain2Seq(BaseModel):
                 for i in range(len(node_names)):
                     node_features[idx*len(node_names)+i] = item["data"][i][idx*n_times:(idx+1)*n_times]
 
+        adjecancy = 0
+        if "norm_" in self.edge_select:
+            pass
+        if "static_" in self.edge_select:
+            pass
+        if "dynamic_" in self.edge_select:
+            with np.errstate(divide="ignore", invalid="ignore"):
+                adjecancy = np.corrcoef(node_features)
+
         # Edge Select
         node_count = len(node_names)
         adjecancy_matrix = np.zeros((n_graphs * node_count, n_graphs * node_count), dtype=np.float64)
@@ -164,8 +173,7 @@ class Brain2Seq(BaseModel):
                         if len(distance) > 0:
                             value = distance.iloc[0]["distance"]
                     if "dynamic_" in self.edge_select:
-                        with np.errstate(divide="ignore", invalid="ignore"):
-                            value = np.corrcoef(node_features[[i, j]])[0, 1]
+                        value = adjecancy[i, j]
 
                     if "_gt" in self.edge_select and value > self.threshold:
                         adjecancy_matrix[idx*node_count+i, idx*node_count+j] = 1

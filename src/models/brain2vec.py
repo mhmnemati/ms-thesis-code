@@ -16,52 +16,47 @@ from torch_geometric.utils.convert import from_scipy_sparse_matrix
 
 
 class Model(T.Module):
-    def __init__(self, n_times, n_outputs):
+    def __init__(self, n_times, n_outputs, gru_size):
         super().__init__()
 
-        # G.GCNConv(in_channels=int(n_times - (4 + 8 + 16) + 3), out_channels=int(n_times*4))
-        self.gcn1 = G.GCNConv(in_channels=int(n_times), out_channels=int(n_times*4))
-        self.norm1 = T.BatchNorm1d(num_features=int(n_times*4))
-        self.gcn2 = G.GCNConv(in_channels=int(n_times*4), out_channels=int(n_times*2))
-        self.norm2 = T.BatchNorm1d(num_features=int(n_times*2))
-        self.gcn3 = G.GCNConv(in_channels=int(n_times*2), out_channels=int(n_times*1))
-        self.norm3 = T.BatchNorm1d(num_features=int(n_times*1))
+        self.model = G.Sequential("x, edge_index, batch", [
+            (lambda x: x.unsqueeze(dim=0), "x -> x"),
 
-        self.bigru = T.GRU(input_size=1, hidden_size=4, num_layers=3, bidirectional=True, batch_first=True, dropout=0.3)
+            (T.Conv2d(in_channels=1, out_channels=64, kernel_size=(1, 4)), "x -> x"),
+            (T.ReLU(), "x -> x"),
+            (T.Conv2d(in_channels=64, out_channels=64, kernel_size=(1, 4)), "x -> x"),
+            (T.ReLU(), "x -> x"),
+            (T.MaxPool2d(kernel_size=(1, 2))),
 
-        self.dense = T.Linear(in_features=4*2, out_features=n_outputs)
+            (T.Conv2d(in_channels=64, out_channels=128, kernel_size=(1, 8)), "x -> x"),
+            (T.ReLU(), "x -> x"),
+            (T.Conv2d(in_channels=128, out_channels=128, kernel_size=(1, 8)), "x -> x"),
+            (T.ReLU(), "x -> x"),
+            (T.MaxPool2d(kernel_size=(1, 2))),
 
-    def forward(self, x, edge_index, batch):
-        x = self.gcn1(x, edge_index)
-        x = self.norm1(x)
-        x = F.leaky_relu(x)
+            (T.Conv2d(in_channels=128, out_channels=1, kernel_size=(1, 1)), "x -> x"),
 
-        x = self.gcn2(x, edge_index)
-        x = self.norm2(x)
-        x = F.leaky_relu(x)
+            (lambda x: x.squeeze(dim=0), "x -> x"),
 
-        x = self.gcn3(x, edge_index)
-        x = self.norm3(x)
-        x = F.leaky_relu(x)
+            (G.GCNConv(in_channels=55, out_channels=64), "x, edge_index -> x"),
+            (T.BatchNorm1d(num_features=64), "x -> x"),
+            (T.ReLU(), "x -> x"),
+            (G.GCNConv(in_channels=64, out_channels=128), "x, edge_index -> x"),
+            (T.BatchNorm1d(num_features=128), "x -> x"),
+            (T.ReLU(), "x -> x"),
 
-        # (21, 256)
-        x = G.global_mean_pool(x, batch)
-        # (256)
+            (G.MeanAggregation(), "x, batch -> x"),
 
-        # (256, 1)
-        x = x.unsqueeze(dim=-1)
+            # (T.MultiheadAttention(embed_dim=int(n_times*1), num_heads=2, dropout=0.3), "x, x, x -> x, _"),
+            (lambda x: x.unsqueeze(dim=-1), "x -> x"),
+            (T.GRU(input_size=1, hidden_size=gru_size, num_layers=3, bidirectional=True, batch_first=True, dropout=0.3), "x -> x, h"),
+            (lambda x: x.mean(dim=1), "x -> x"),
 
-        # (256, 8)
-        x, _ = self.bigru(x)
+            (T.Linear(in_features=gru_size*2, out_features=n_outputs), "x -> x"),
+        ])
 
-        # (8)
-        x = pt.mean(x, dim=1)
-        # x = x[:, -1, :]
-
-        x = self.dense(x)
-        x = F.softmax(x, dim=-1)
-
-        return x
+    def forward(self, *args):
+        return self.model(*args)
 
 
 class Brain2Vec(BaseModel):
@@ -81,6 +76,7 @@ class Brain2Vec(BaseModel):
             model=Model(
                 n_times=hparams["n_times"],
                 n_outputs=hparams["n_outputs"],
+                gru_size=hparams["gru_size"],
             ),
             loss=loss_fn,
         )
@@ -137,6 +133,15 @@ class Brain2Vec(BaseModel):
             ]).mean(axis=0)
             node_features = item["data"]
 
+        adjecancy = 0
+        if "norm_" in self.edge_select:
+            pass
+        if "static_" in self.edge_select:
+            pass
+        if "dynamic_" in self.edge_select:
+            with np.errstate(divide="ignore", invalid="ignore"):
+                adjecancy = np.corrcoef(node_features)
+
         # Edge Select
         node_count = len(node_names)
         adjecancy_matrix = np.zeros((node_count, node_count), dtype=np.float64)
@@ -154,8 +159,7 @@ class Brain2Vec(BaseModel):
                     if len(distance) > 0:
                         value = distance.iloc[0]["distance"]
                 if "dynamic_" in self.edge_select:
-                    with np.errstate(divide="ignore", invalid="ignore"):
-                        value = np.corrcoef(node_features[[i, j]])[0, 1]
+                    value = adjecancy[i, j]
 
                 if "_gt" in self.edge_select and value > self.threshold:
                     adjecancy_matrix[i, j] = 1
@@ -164,7 +168,10 @@ class Brain2Vec(BaseModel):
 
         for i in range(node_features.shape[0]):
             if self.signal_transform == "fourier":
-                node_features[i] = np.abs(np.fft.fft(node_features[i]))
+                coeffs = np.fft.fft(node_features[i])
+                coeffs[:2] = 0
+                coeffs[33:] = 0
+                node_features[i] = np.real(np.fft.ifft(coeffs))
             elif self.signal_transform == "wavelet":
                 coeffs = pywt.wavedec(node_features[i], "db4", level=5)
                 coeffs[-1] = np.zeros_like(coeffs[-1])
@@ -189,5 +196,7 @@ class Brain2Vec(BaseModel):
         parser.add_argument("--node_transform", type=str, default="unipolar", choices=["unipolar", "bipolar"])
         parser.add_argument("--edge_select", type=str, default="norm_lt", choices=["norm_lt", "norm_gt", "static_lt", "static_gt", "dynamic_lt", "dynamic_gt"])
         parser.add_argument("--threshold", type=float, default=0.1)
+
+        parser.add_argument("--gru_size", type=int, default=4)
 
         return parent_parser
