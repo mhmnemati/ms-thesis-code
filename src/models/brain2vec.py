@@ -55,6 +55,7 @@ class Model(T.Module):
             (aggregate_fn, "x, n_nodes, n_graphs, batch -> x"),
 
             (T.GRU(input_size=gru_input_size, hidden_size=gru_size, num_layers=3, bidirectional=True, batch_first=True, dropout=0.3), "x -> x, h"),
+            (lambda x: x[:, -1, :], "x -> x"),
 
             (T.Linear(in_features=(gru_size*2), out_features=n_outputs), "x -> x"),
         ])
