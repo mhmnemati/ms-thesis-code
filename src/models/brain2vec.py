@@ -19,16 +19,26 @@ class Model(T.Module):
     def __init__(self, n_times, n_outputs, aggregator, gru_size):
         super().__init__()
 
-        def batch_convert(n_nodes, n_graphs):
-            repeats = pt.repeat_interleave(n_nodes, n_graphs)
-            values = pt.full((n_graphs.sum(), ), len(n_graphs))
+        def aggregate_fn(x, n_nodes, n_graphs, batch):
+            if aggregator == "vector":
+                return G.pool.global_mean_pool(x, batch).unsqueeze(-1)
 
-            i = 0
-            for idx, length in enumerate(n_graphs):
-                values[i + int(length/2)] = idx
-                i += length
+            if aggregator == "sequence":
+                # batch = [0[3*5], 1[2*4], 2[1*3]]
+                # batch_size = 3
+                # n_nodes = [3,2,1]
+                # n_graphs = [5,4,3]
+                # batch_old = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 1,1,1,1,1,1,1,1, 2,2,2] = (26)
+                # batch_new = [0,0,0,1,1,1,2,2,2,3,3,3,4,4,4, 5,5,6,6,7,7,8,8, 9,10,11] = (26)
+                # Caution: this implementation is highly optimized and complex
+                batch = pt.repeat_interleave(pt.arange(n_graphs.sum()), pt.repeat_interleave(n_nodes, n_graphs))
+                x = G.pool.global_mean_pool(x, batch)
+                splits = pt.tensor_split(x, pt.cumsum(n_graphs, dim=0)[:-1])
+                return T.utils.rnn.pad_sequence(splits, batch_first=True)
 
-            return pt.repeat_interleave(values, repeats)
+        gru_input_size = 1
+        if aggregator == "sequence":
+            gru_input_size = int(n_times*4)
 
         self.model = G.Sequential("x, edge_index, n_nodes, n_graphs, batch", [
             (lambda edge_index: GU.dropout_edge(edge_index, p=0.2), "edge_index -> edge_index, edge_mask"),
@@ -42,12 +52,11 @@ class Model(T.Module):
             # (T.BatchNorm1d(num_features=int(n_times/1)), "x -> x"),
             # (T.ReLU(), "x -> x"),
 
-            (G.MeanAggregation(), "x, batch -> x"),
+            (aggregate_fn, "x, n_nodes, n_graphs, batch -> x"),
 
-            # (T.MultiheadAttention(embed_dim=int(n_times/8), num_heads=2, dropout=0.3), "x, x, x -> x, _"),
-            # (T.GRU(input_size=int(n_times*8), hidden_size=gru_size, num_layers=3, bidirectional=True, dropout=0.3), "x -> x, h"),
+            (T.GRU(input_size=gru_input_size, hidden_size=gru_size, num_layers=3, bidirectional=True, batch_first=True, dropout=0.3), "x -> x, h"),
 
-            (T.Linear(in_features=int(n_times*4), out_features=n_outputs), "x -> x"),
+            (T.Linear(in_features=(gru_size*2), out_features=n_outputs), "x -> x"),
         ])
 
     def forward(self, *args):
@@ -77,6 +86,7 @@ class Brain2Vec(BaseModel):
             loss=loss_fn,
         )
 
+        self.normalization = hparams["normalization"]
         self.cross_connections = hparams["cross_connections"]
         self.signal_transform = hparams["signal_transform"]
         self.node_transform = hparams["node_transform"]
@@ -85,21 +95,18 @@ class Brain2Vec(BaseModel):
         self.n_times = hparams["n_times"]
 
     def transform(self, item):
-        # Signal Transform
         for i in range(item["data"].shape[0]):
-            # Normalization: Method 1
-            item["data"][i] = item["data"][i] * 1e6
+            # Normalization
+            if self.normalization == "micro":
+                item["data"][i] = item["data"][i] * 1e6
+            elif self.normalization == "p95":
+                percentile_95 = np.percentile(np.abs(item["data"][i]), 95, axis=0, keepdims=True)
+                item["data"][i] = item["data"][i] / percentile_95
+            elif self.normalization == "z":
+                norm = np.linalg.norm(item["data"][i])
+                item["data"][i] = item["data"][i] / norm
 
-            # Normalization: Method 2
-            # for i in range(item["data"].shape[0]):
-            #     percentile_95 = np.percentile(np.abs(item["data"][i]), 95, axis=0, keepdims=True)
-            #     item["data"][i] = item["data"][i] / percentile_95
-
-            # Normalization: Method 3
-            # for i in range(item["data"].shape[0]):
-            #     norm = np.linalg.norm(item["data"][i])
-            #     item["data"][i] = item["data"][i] / norm
-
+            # Signal Transform
             if self.signal_transform == "fourier":
                 coeffs = np.fft.fft(item["data"][i])
                 coeffs[:2] = 0
@@ -165,7 +172,7 @@ class Brain2Vec(BaseModel):
             for i in range(node_count):
                 # Cross graph connections (before,after)
                 for c in range(self.cross_connections):
-                    if idx + c <= n_graphs:
+                    if idx + c + 1 < n_graphs:
                         adjecancy_matrix[(idx*node_count)+i, ((idx+c+1)*node_count)+i] = 1
 
                 # Inter graph connections (far/close/static/dynamic)
@@ -204,13 +211,14 @@ class Brain2Vec(BaseModel):
         parser.add_argument("--n_outputs", type=int, default=2)
         parser.add_argument("--loss_fn", type=str, default="ce", choices=["ce", "focal"])
 
+        parser.add_argument("--normalization", type=str, default="micro", choices=["micro", "p95", "z"])
         parser.add_argument("--cross_connections", type=int, default=1)
         parser.add_argument("--signal_transform", type=str, default="raw", choices=["raw", "fourier", "wavelet"])
         parser.add_argument("--node_transform", type=str, default="unipolar", choices=["unipolar", "bipolar"])
         parser.add_argument("--edge_select", type=str, default="norm_lt", choices=["norm_lt", "norm_gt", "static_lt", "static_gt", "dynamic_lt", "dynamic_gt"])
         parser.add_argument("--threshold", type=float, default=0.1)
 
-        parser.add_argument("--aggregator", type=str, default="sequence", choices=["sequence", "vector"])
+        parser.add_argument("--aggregator", type=str, default="vector", choices=["vector", "sequence"])
         parser.add_argument("--gru_size", type=int, default=4)
 
         return parent_parser
