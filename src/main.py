@@ -3,7 +3,7 @@ import argparse
 import lightning as L
 from lightning.pytorch.loggers import TensorBoardLogger
 
-from models import EEGCNN, Deep4Net, EEGInception, Brain2Vec, Brain2Seq, BIOTRaw, BIOTFusion
+from models import EEGCNN, Deep4Net, EEGInception, Brain2Vec, BIOTRaw, BIOTFusion
 from data import TensorDataset
 
 torch.multiprocessing.set_sharing_strategy("file_system")
@@ -13,7 +13,6 @@ model_classes = {
     "deep4net": Deep4Net,
     "eeginception": EEGInception,
     "brain2vec": Brain2Vec,
-    "brain2seq": Brain2Seq,
     "biot_raw": BIOTRaw,
     "biot_fusion": BIOTFusion,
 }
