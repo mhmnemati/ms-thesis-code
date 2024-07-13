@@ -1,6 +1,8 @@
 import numpy as np
 import torch as pt
 import torch.nn as T
+import focal_loss as fl
+import torch.nn.functional as F
 
 from .base import BaseModel
 from torch.utils.data import DataLoader
@@ -21,11 +23,11 @@ class Model(T.Module):
             T.ReLU(),
             T.Conv2d(in_channels=128, out_channels=128, kernel_size=(2, 4), stride=(1, 2)),
             T.ReLU(),
-            T.MaxPool2d((2, 2)),
+            T.MaxPool2d((1, 2)),
 
-            T.Conv2d(in_channels=128, out_channels=256, kernel_size=(4, 4), padding="same"),
+            T.Conv2d(in_channels=128, out_channels=256, kernel_size=(2, 4), padding="same"),
             T.ReLU(),
-            T.Conv2d(in_channels=256, out_channels=256, kernel_size=(4, 4), stride=(1, 2)),
+            T.Conv2d(in_channels=256, out_channels=256, kernel_size=(2, 4), stride=(1, 2)),
             T.ReLU(),
             T.MaxPool2d((1, 2)),
 
@@ -40,7 +42,7 @@ class Model(T.Module):
             T.Linear(128, 64),
             T.ReLU(),
             T.Dropout(0.25),
-            T.Linear(64, 2),
+            T.Linear(64, n_outputs),
         )
 
     def forward(self, x):
@@ -51,6 +53,11 @@ class EEGCNN(BaseModel):
     data_loader = DataLoader
 
     def __init__(self, **hparams):
+        focal_loss = fl.FocalLoss(gamma=0.7)
+
+        def loss_fn(pred, true):
+            return focal_loss(F.softmax(pred, dim=-1), true)
+
         super().__init__(
             num_classes=hparams["n_outputs"],
             hparams=hparams,
@@ -59,7 +66,7 @@ class EEGCNN(BaseModel):
                 n_times=hparams["n_times"],
                 n_outputs=hparams["n_outputs"],
             ),
-            loss=pt.nn.CrossEntropyLoss()
+            loss=loss_fn
         )
 
     def transform(self, item):
