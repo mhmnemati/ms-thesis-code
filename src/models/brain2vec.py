@@ -31,10 +31,10 @@ class Model(T.Module):
                 # batch_old = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 1,1,1,1,1,1,1,1, 2,2,2] = (26)
                 # batch_new = [0,0,0,1,1,1,2,2,2,3,3,3,4,4,4, 5,5,6,6,7,7,8,8, 9,10,11] = (26)
                 # Caution: this implementation is highly optimized and complex
-                batch = pt.repeat_interleave(pt.arange(n_graphs.sum()), pt.repeat_interleave(n_nodes, n_graphs))
+                batch = pt.repeat_interleave(pt.arange(n_graphs.sum()).to(n_graphs.device), pt.repeat_interleave(n_nodes, n_graphs))
                 x = G.pool.global_mean_pool(x, batch)
-                splits = pt.tensor_split(x, pt.cumsum(n_graphs, dim=0)[:-1])
-                return T.utils.rnn.pad_sequence(splits, batch_first=True)
+                splits = pt.tensor_split(x, pt.cumsum(n_graphs.to("cpu"), dim=0)[:-1])
+                return T.utils.rnn.pad_sequence(splits, batch_first=True).to(n_graphs.device)
 
         gru_input_size = 1
         if aggregator == "sequence":
