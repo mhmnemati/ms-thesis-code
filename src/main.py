@@ -2,6 +2,7 @@ import torch
 import argparse
 import lightning as L
 from lightning.pytorch.loggers import TensorBoardLogger
+from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 
 from models import EEGCNN, Deep4Net, EEGInception, Brain2Vec, BIOTRaw, BIOTFusion
 from data import TensorDataset
@@ -48,5 +49,9 @@ valid_set = TensorDataset(name=args.data, split="train", method=args.method, fol
 train_loader = model.data_loader(train_set, num_workers=args.num_workers, batch_size=args.batch_size)
 valid_loader = model.data_loader(valid_set, num_workers=args.num_workers, batch_size=args.batch_size)
 
-trainer = L.Trainer(max_epochs=args.epochs, logger=TensorBoardLogger("logs/", name=f"{args.model}/{args.data}", version=args.version, default_hp_metric=False))
+trainer = L.Trainer(
+    max_epochs=args.epochs,
+    callbacks=[EarlyStopping(monitor="validation/loss", patience=20, mode="min")],
+    logger=TensorBoardLogger("logs/", name=f"{args.model}/{args.data}", version=args.version, default_hp_metric=False),
+)
 trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=valid_loader)
