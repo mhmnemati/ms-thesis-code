@@ -57,12 +57,12 @@ class Model(T.Module):
             (T.GRU(input_size=gru_input_size, hidden_size=gru_size, num_layers=3, bidirectional=True, batch_first=True, dropout=0.3), "x -> x, h"),
             (lambda x: x[:, -1, :], "x -> x"),
 
-            (T.Linear(in_features=(gru_size*2), out_features=n_outputs, weight_initializer="glorot"), "x -> x"),
+            (T.Linear(in_features=(gru_size*2), out_features=n_outputs), "x -> x"),
         ])
 
         def init_weights(m):
             if isinstance(m, T.Linear):
-                T.init.xavier_uniform_(m.weights)
+                T.init.xavier_uniform_(m.weight)
                 T.init.zeros_(m.bias)
             if isinstance(m, T.GRU):
                 T.init.xavier_uniform_(m.weight_hh_l0)
