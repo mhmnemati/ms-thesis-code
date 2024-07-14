@@ -60,6 +60,19 @@ class Model(T.Module):
             (T.Linear(in_features=(gru_size*2), out_features=n_outputs), "x -> x"),
         ])
 
+        def init_weights(m):
+            if isinstance(m, T.Linear):
+                T.init.xavier_uniform_(m.weight)
+                T.init.zeros_(m.bias)
+            if isinstance(m, T.GRU):
+                T.init.xavier_uniform_(m.all_weights)
+                T.init.zeros_(m.bias)
+            if isinstance(m, G.GATv2Conv):
+                T.init.xavier_uniform_(m.share_weights)
+                T.init.zeros_(m.bias)
+
+        self.model.apply(init_weights)
+
     def forward(self, *args):
         return self.model(*args)
 
