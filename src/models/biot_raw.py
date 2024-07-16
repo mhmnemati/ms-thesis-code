@@ -1,5 +1,4 @@
 import numpy as np
-import scipy as sp
 import torch as pt
 import torch.nn as nn
 
@@ -10,17 +9,17 @@ from .biot import BIOTEncoder
 
 
 class BIOTRawModel(nn.Module):
-    def __init__(self, n_outputs):
+    def __init__(self, n_channels, n_outputs):
         super().__init__()
 
         self.encoder = BIOTEncoder(
             emb_size=256,
             heads=8,
             depth=4,
-            n_classes=5,
             n_fft=200,
             hop_length=100,
-            n_channels=18,
+            n_channels=n_channels,
+            n_classes=n_outputs,
         )
         self.classifier = nn.Sequential(
             nn.Linear(in_features=256, out_features=n_outputs),
@@ -40,64 +39,26 @@ class BIOTRaw(BaseModel):
             num_classes=hparams["n_outputs"],
             hparams=hparams,
             model=BIOTRawModel(
+                n_channels=hparams["n_channels"],
                 n_outputs=hparams["n_outputs"]
             ),
             loss=pt.nn.CrossEntropyLoss()
         )
 
         self.n_times = hparams["n_times"]
+        self.n_channels = hparams["n_channels"]
 
     def transform(self, item):
         for i in range(item["data"].shape[0]):
             percentile_95 = np.percentile(np.abs(item["data"][i]), 95, axis=0, keepdims=True)
             item["data"][i] = item["data"][i] / percentile_95
 
-        channels = [
-            "FP1-F7",
-            "F7-T7",
-            "T7-P7",
-            "P7-O1",
-            "FP2-F8",
-            "F8-T8",
-            "T8-P8",
-            "P8-O2",
-            "FP1-F3",
-            "F3-C3",
-            "C3-P3",
-            "P3-O1",
-            "FP2-F4",
-            "F4-C4",
-            "C4-P4",
-            "P4-O2",
-            "C3-A2",
-            "C4-A1",
-        ]
-
-        data = np.zeros((len(channels), self.n_times), dtype=np.float32)
-        for idx, ch_name in enumerate(item["ch_names"]):
-            ch_name = ch_name.replace("EEG ", "").upper()
-
-            if ch_name in channels:
-                signal = sp.signal.resample(item["data"][idx], self.n_times)
-                data[channels.index(ch_name)] = signal
-
-            if ch_name == "FPZ-CZ":
-                signal = sp.signal.resample(item["data"][idx], self.n_times)
-                data[channels.index("FP1-F3")] = signal
-                data[channels.index("F3-C3")] = signal
-                data[channels.index("FP2-F4")] = signal
-                data[channels.index("F4-C4")] = signal
-
-            if ch_name == "PZ-OZ":
-                signal = sp.signal.resample(item["data"][idx], self.n_times)
-                data[channels.index("P3-O1")] = signal
-                data[channels.index("P4-O2")] = signal
-
-        return (data, item["labels"].max())
+        return (item["data"], item["labels"].max())
 
     @staticmethod
     def add_arguments(parent_parser):
         parser = parent_parser.add_argument_group("BIOTRaw")
         parser.add_argument("--n_times", type=int, default=6000)
+        parser.add_argument("--n_channels", type=int, default=4)
         parser.add_argument("--n_outputs", type=int, default=5)
         return parent_parser

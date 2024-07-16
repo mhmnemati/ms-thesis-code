@@ -17,10 +17,11 @@ class BIOTFusionModel(nn.Module):
             emb_size=256,
             heads=8,
             depth=4,
-            n_classes=5,
             n_fft=200,
             hop_length=100,
             n_channels=18,
+            n_classes=n_outputs,
+            fine_tune=True,
         )
         self.exg_encoder = nn.Sequential(
             nn.Conv1d(in_channels=2, out_channels=64, kernel_size=64),

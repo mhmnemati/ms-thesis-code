@@ -58,6 +58,7 @@ class BIOTEncoder(nn.Module):
         n_channels=16,
         n_fft=200,
         hop_length=100,
+        fine_tune=False,
         **kwargs
     ):
         super().__init__()
@@ -84,9 +85,10 @@ class BIOTEncoder(nn.Module):
             pt.LongTensor(range(n_channels)), requires_grad=False
         )
 
-        self.load_state_dict(
-            pt.load(f"{os.path.dirname(__file__)}/EEG-six-datasets-18-channels.ckpt")
-        )
+        if fine_tune:
+            self.load_state_dict(
+                pt.load(f"{os.path.dirname(__file__)}/EEG-six-datasets-18-channels.ckpt")
+            )
 
     def stft(self, sample):
         spectral = pt.stft(
