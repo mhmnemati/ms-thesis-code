@@ -4,7 +4,7 @@ import lightning as L
 from lightning.pytorch.loggers import TensorBoardLogger
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 
-from models import EEGCNN, Deep4Net, EEGInception, Brain2Vec, BIOTRaw, BIOTFusion
+from models import EEGCNN, Deep4Net, EEGInception, Brain2Vec, BIOTRaw, BIOTFusion, BIOTMultiModal
 from data import TensorDataset
 
 torch.multiprocessing.set_sharing_strategy("file_system")
@@ -16,6 +16,7 @@ model_classes = {
     "brain2vec": Brain2Vec,
     "biot_raw": BIOTRaw,
     "biot_fusion": BIOTFusion,
+    "biot_multimodal": BIOTMultiModal,
 }
 data_sets = [
     "chb_mit_window_1",

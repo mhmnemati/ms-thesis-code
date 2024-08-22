@@ -4,3 +4,4 @@ from .eeginception import EEGInception
 from .brain2vec import Brain2Vec
 from .biot_raw import BIOTRaw
 from .biot_fusion import BIOTFusion
+from .biot_multimodal import BIOTMultiModal

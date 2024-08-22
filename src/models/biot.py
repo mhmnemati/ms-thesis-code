@@ -52,8 +52,8 @@ class PositionalEncoding(nn.Module):
 class BIOTEncoder(nn.Module):
     def __init__(
         self,
-        emb_size=256,
-        heads=8,
+        emb_size=64,
+        heads=2,
         depth=4,
         n_channels=16,
         n_fft=200,
@@ -80,7 +80,7 @@ class BIOTEncoder(nn.Module):
         self.positional_encoding = PositionalEncoding(emb_size)
 
         # channel token, N_channels >= your actual channels
-        self.channel_tokens = nn.Embedding(n_channels, 256)
+        self.channel_tokens = nn.Embedding(n_channels, emb_size)
         self.index = nn.Parameter(
             pt.LongTensor(range(n_channels)), requires_grad=False
         )

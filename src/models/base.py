@@ -41,7 +41,7 @@ class BaseModel(L.LightningModule):
         return self.model(*args)
 
     def configure_optimizers(self):
-        optimizer = pt.optim.Adam(self.parameters(), lr=1e-4, weight_decay=1e-2)
+        optimizer = pt.optim.Adam(self.parameters(), lr=1e-3, weight_decay=1e-4)
         scheduler = pt.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=1)
         return [optimizer], [scheduler]
 
@@ -63,9 +63,9 @@ class BaseModel(L.LightningModule):
             if "n_nodes" in batch:
                 args = (batch.x, batch.edge_index, batch.n_nodes, batch.n_graphs, batch.batch)
         else:
-            batch_size = len(batch[1])
-            args = (batch[0],)
-            y = batch[1]
+            batch_size = len(batch[-1])
+            args = batch[:-1]
+            y = batch[-1]
 
         pred = self.model(*args)
 
