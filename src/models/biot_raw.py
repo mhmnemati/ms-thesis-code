@@ -28,10 +28,10 @@ class BIOTRawModel(nn.Module):
     def forward(self, x):
         modality_ids = pt.tensor([0, 0, 1], device=x.device)
         context = pt.tensor([
-            [1, 0, 0],
-            [0, 1, 0],
-            [0, 0, 0]
-        ], device=x.device, dtype=pt.float32)
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0]
+        ], device=x.device)
 
         x = self.encoder(x, modality_ids, context)
         x = self.classifier(x)

@@ -5,6 +5,43 @@ import torch as pt
 import torch.nn as nn
 from linear_attention_transformer import LinearAttentionTransformer
 
+import torch.nn as nn
+
+
+class ConvDenoisingAutoencoder(nn.Module):
+    def __init__(self, input_channels=1, hidden_channels=32, kernel_size=3, stride=1, padding=1):
+        super(ConvDenoisingAutoencoder, self).__init__()
+
+        # Encoder
+        self.encoder = nn.Sequential(
+            nn.Conv1d(input_channels, hidden_channels, kernel_size, stride, padding),
+            nn.ReLU(True),
+            nn.Conv1d(hidden_channels, hidden_channels // 2, kernel_size, stride, padding),
+            nn.ReLU(True),
+            nn.Conv1d(hidden_channels // 2, hidden_channels // 4, kernel_size, stride, padding),
+            nn.ReLU(True)
+        )
+
+        # Decoder
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose1d(hidden_channels // 4, hidden_channels // 2, kernel_size, stride, padding),
+            nn.ReLU(True),
+            nn.ConvTranspose1d(hidden_channels // 2, hidden_channels, kernel_size, stride, padding),
+            nn.ReLU(True),
+            nn.ConvTranspose1d(hidden_channels, input_channels, kernel_size, stride, padding),
+            nn.Sigmoid()  # Assuming the input data is normalized
+        )
+
+    def forward(self, x):
+        x = self.encoder(x)
+        x = self.decoder(x)
+        return x
+
+    def add_noise(self, x, noise_factor=0.3):
+        noisy_x = x + noise_factor * pt.randn_like(x)
+        noisy_x = pt.clip(noisy_x, 0., 1.)
+        return noisy_x
+
 
 class PatchFrequencyEmbedding(nn.Module):
     def __init__(self, emb_size=256, n_freq=101):
@@ -85,6 +122,9 @@ class BIOTEncoder(nn.Module):
     ):
         super().__init__()
 
+        # Initialize the DAE
+        self.dae = ConvDenoisingAutoencoder(input_channels=1, hidden_channels=32)
+
         self.n_fft = n_fft
         self.hop_length = hop_length
 
@@ -124,7 +164,13 @@ class BIOTEncoder(nn.Module):
         """
         emb_seq = []
         for i in range(x.shape[1]):
-            channel_spec_emb = self.stft(x[:, i: i + 1, :])
+            channel_data = x[:, i, :]
+
+            # Add noise and denoise with the ConvDAE
+            noisy_channel_data = self.dae.add_noise(channel_data.unsqueeze(1))
+            denoised_channel_data = self.dae(noisy_channel_data).squeeze(1)
+
+            channel_spec_emb = self.stft(denoised_channel_data.unsqueeze(1))
             channel_spec_emb = self.patch_frequency_embedding(channel_spec_emb)
             batch_size, ts, _ = channel_spec_emb.shape
 
