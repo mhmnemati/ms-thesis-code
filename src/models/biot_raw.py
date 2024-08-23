@@ -26,7 +26,14 @@ class BIOTRawModel(nn.Module):
         )
 
     def forward(self, x):
-        x = self.encoder(x)
+        modality_ids = pt.tensor([0, 0, 1], device=x.device)
+        context = pt.tensor([
+            [1, 0, 0],
+            [0, 1, 0],
+            [0, 0, 0]
+        ], device=x.device, dtype=pt.float32)
+
+        x = self.encoder(x, modality_ids, context)
         x = self.classifier(x)
         return x
 
@@ -49,11 +56,18 @@ class BIOTRaw(BaseModel):
         self.n_channels = hparams["n_channels"]
 
     def transform(self, item):
+        ch_names = item["ch_names"]
+        eeg_ch_indexes = [idx for idx, ch_name in enumerate(ch_names) if "EEG" in ch_name]
+        eog_ch_indexes = [idx for idx, ch_name in enumerate(ch_names) if "EOG" in ch_name]
+
         for i in range(item["data"].shape[0]):
             percentile_95 = np.percentile(np.abs(item["data"][i]), 95, axis=0, keepdims=True)
             item["data"][i] = item["data"][i] / percentile_95
 
-        return (item["data"], item["labels"].max())
+        eeg = item["data"][eeg_ch_indexes]
+        eog = item["data"][eog_ch_indexes]
+
+        return (np.vstack((eeg, eog)), item["labels"].max())
 
     @staticmethod
     def add_arguments(parent_parser):

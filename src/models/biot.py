@@ -3,7 +3,6 @@ import math
 import numpy as np
 import torch as pt
 import torch.nn as nn
-
 from linear_attention_transformer import LinearAttentionTransformer
 
 
@@ -27,7 +26,6 @@ class PositionalEncoding(nn.Module):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
 
-        # Compute the positional encodings once in log space.
         pe = pt.zeros(max_len, d_model)
         position = pt.arange(0, max_len).unsqueeze(1).float()
         div_term = pt.exp(
@@ -39,14 +37,37 @@ class PositionalEncoding(nn.Module):
         self.register_buffer("pe", pe)
 
     def forward(self, x: pt.FloatTensor) -> pt.FloatTensor:
-        """
-        Args:
-            x: `embeddings`, shape (batch, max_len, d_model)
-        Returns:
-            `encoder input`, shape (batch, max_len, d_model)
-        """
         x = x + self.pe[:, : x.size(1)]
         return self.dropout(x)
+
+
+class ContextEmbedding(nn.Module):
+    def __init__(self, embedding_dim, num_modalities, context_dim):
+        super(ContextEmbedding, self).__init__()
+        self.modal_embedding = nn.Embedding(num_modalities, embedding_dim)
+
+        # Linear layer to process the context (e.g., X, Y, Z for EEG)
+        self.context_net = nn.Sequential(
+            nn.Linear(context_dim, embedding_dim),
+            nn.ReLU(),
+            nn.Linear(embedding_dim, embedding_dim)
+        )
+
+    def forward(self, modality_ids, context):
+        """
+        modality_ids: Tensor indicating the modality for each channel
+        context: Tensor containing context information (e.g., X, Y, Z positions for EEG)
+        """
+        # Get modal embeddings based on modality IDs
+        modal_emb = self.modal_embedding(modality_ids)
+
+        # Generate context-based embeddings
+        context_emb = self.context_net(context)
+
+        # Combine modal and context embeddings
+        combined_emb = modal_emb + context_emb
+
+        return combined_emb  # Shape: [num_channels, embedding_dim]
 
 
 class BIOTEncoder(nn.Module):
@@ -56,6 +77,7 @@ class BIOTEncoder(nn.Module):
         heads=2,
         depth=4,
         n_channels=16,
+        n_modalities=2,  # Add the number of modalities (e.g., EEG, EOG)
         n_fft=200,
         hop_length=100,
         fine_tune=False,
@@ -66,23 +88,16 @@ class BIOTEncoder(nn.Module):
         self.n_fft = n_fft
         self.hop_length = hop_length
 
-        self.patch_embedding = PatchFrequencyEmbedding(
-            emb_size=emb_size, n_freq=self.n_fft // 2 + 1
-        )
+        self.patch_frequency_embedding = PatchFrequencyEmbedding(emb_size, n_freq=self.n_fft // 2 + 1)
+        self.positional_encoding = PositionalEncoding(emb_size)
+        self.context_embedding = ContextEmbedding(emb_size, num_modalities=n_modalities, context_dim=3)
         self.transformer = LinearAttentionTransformer(
             dim=emb_size,
             heads=heads,
             depth=depth,
             max_seq_len=1024,
-            attn_layer_dropout=0.2,  # dropout right after self-attention layer
-            attn_dropout=0.2,  # dropout post-attention
-        )
-        self.positional_encoding = PositionalEncoding(emb_size)
-
-        # channel token, N_channels >= your actual channels
-        self.channel_tokens = nn.Embedding(n_channels, emb_size)
-        self.index = nn.Parameter(
-            pt.LongTensor(range(n_channels)), requires_grad=False
+            attn_layer_dropout=0.2,
+            attn_dropout=0.2,
         )
 
         if fine_tune:
@@ -101,36 +116,42 @@ class BIOTEncoder(nn.Module):
         )
         return pt.abs(spectral)
 
-    def forward(self, x, n_channel_offset=0, perturb=False):
+    def forward(self, x, modality_ids=None, context=None, perturb=False):
         """
         x: [batch_size, channel, ts]
+        modality_ids: [channel], an array that indicates the modality of each channel
         output: [batch_size, emb_size]
         """
         emb_seq = []
         for i in range(x.shape[1]):
             channel_spec_emb = self.stft(x[:, i: i + 1, :])
-            channel_spec_emb = self.patch_embedding(channel_spec_emb)
+            channel_spec_emb = self.patch_frequency_embedding(channel_spec_emb)
             batch_size, ts, _ = channel_spec_emb.shape
-            # (batch_size, ts, emb)
-            channel_token_emb = (
-                self.channel_tokens(self.index[i + n_channel_offset])
-                .unsqueeze(0)
-                .unsqueeze(0)
-                .repeat(batch_size, ts, 1)
-            )
-            # (batch_size, ts, emb)
-            channel_emb = self.positional_encoding(channel_spec_emb + channel_token_emb)
 
-            # perturb
+            # Unified Context Embedding
+            channel_emb = self.context_embedding(modality_ids[i].unsqueeze(0), context[i].unsqueeze(0))
+
+            # Expand the channel embedding across the sequence length
+            channel_emb = channel_emb.unsqueeze(1).expand(batch_size, ts, -1)
+
+            # Combine channel embedding with the patch embedding
+            channel_emb = channel_spec_emb + channel_emb
+
+            # Positional encoding
+            channel_emb = self.positional_encoding(channel_emb)
+
+            # Perturbation (if enabled)
             if perturb:
                 ts = channel_emb.shape[1]
                 ts_new = np.random.randint(ts // 2, ts)
                 selected_ts = np.random.choice(range(ts), ts_new, replace=False)
                 channel_emb = channel_emb[:, selected_ts]
+
             emb_seq.append(channel_emb)
 
-        # (batch_size, 16 * ts, emb)
+        # Concatenate along the time dimension
         emb = pt.cat(emb_seq, dim=1)
-        # (batch_size, emb)
+
+        # Pass through the transformer and average over the sequence
         emb = self.transformer(emb).mean(dim=1)
         return emb

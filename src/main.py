@@ -54,5 +54,6 @@ trainer = L.Trainer(
     max_epochs=args.epochs,
     callbacks=[EarlyStopping(monitor="validation/loss", patience=20, mode="min")],
     logger=TensorBoardLogger("logs/", name=f"{args.model}/{args.data}", version=args.version, default_hp_metric=False),
+    strategy="ddp_find_unused_parameters_true",
 )
 trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=valid_loader)

@@ -6,6 +6,7 @@ from .base import BaseModel
 from torch.utils.data import DataLoader
 
 from .biot import BIOTEncoder
+from linear_attention_transformer import LinearAttentionTransformer
 
 
 class BIOTMultiModalModel(nn.Module):
@@ -14,6 +15,11 @@ class BIOTMultiModalModel(nn.Module):
 
         self.eeg_encoder = BIOTEncoder(n_channels=2, heads=2, depth=4, n_fft=400)
         self.eog_encoder = BIOTEncoder(n_channels=1, heads=2, depth=2, n_fft=400)
+        self.pre_transformer = nn.Sequential(
+            nn.Dropout(p=0.5),
+            # nn.LayerNorm(normalized_shape=),
+        )
+        self.x_transformer = LinearAttentionTransformer(dim=128, heads=2, depth=2, max_seq_len=128)
         self.classifier = nn.Sequential(
             nn.Linear(in_features=128, out_features=64),
             nn.GELU(),
@@ -26,6 +32,9 @@ class BIOTMultiModalModel(nn.Module):
         x_eeg = self.eeg_encoder(eeg)
         x_eog = self.eog_encoder(eog)
         x = pt.cat([x_eeg, x_eog], dim=1)
+        x1 = self.pre_transformer(x)
+        x2 = self.x_transformer(x1[None, :, :])[0]
+        x = x1 + x2
         return self.classifier(x)
 
 
