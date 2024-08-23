@@ -102,7 +102,7 @@ class Generator:
                 annotation = mne.read_annotations(record[1])
 
                 labels, tmin, tmax = self.get_labels(raw, annotation)
-                ch_names, picks = self.get_montage(raw, positions)
+                sources, targets, ch_names, picks = self.get_montage(raw, positions)
 
                 data = raw.get_data(tmin=tmin, tmax=tmax, picks=picks).astype(np.float32)
 
@@ -115,6 +115,8 @@ class Generator:
                     yield f"{patient}", {
                         "data": data[:, int(low*sfreq):int(high*sfreq)],
                         "labels": labels[low:high],
+                        "sources": sources,
+                        "targets": targets,
                         "ch_names": ch_names,
                     }
 
@@ -141,11 +143,19 @@ class Generator:
         picks_eog = list(mne.pick_types(raw.info, eog=True))
         picks_emg = list(mne.pick_types(raw.info, emg=True))
 
+        sources = np.zeros((len(picks_eeg + picks_eog + picks_emg), 3), dtype=np.float32)
+        targets = np.zeros((len(picks_eeg + picks_eog + picks_emg), 3), dtype=np.float32)
+        for idx, pick in enumerate(picks_eeg):
+            channel = raw.info["ch_names"][pick]
+            electrodes = channel.upper().split("-")
+            sources[idx] = positions[electrodes[0]]
+            targets[idx] = positions[electrodes[1]]
+
         names_eeg = [f"EEG {raw.info['ch_names'][p]}" for p in picks_eeg]
         names_eog = [f"EOG {raw.info['ch_names'][p]}" for p in picks_eog]
         names_emg = [f"EMG {raw.info['ch_names'][p]}" for p in picks_emg]
 
-        return (names_eeg + names_eog + names_emg), (picks_eeg + picks_eog + picks_emg)
+        return sources, targets, (names_eeg + names_eog + names_emg), (picks_eeg + picks_eog + picks_emg)
 
 
 build(Generator)
