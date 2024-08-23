@@ -73,6 +73,13 @@ class BIOTRaw(BaseModel):
         modality_ids = np.repeat([0, 1], [len(eeg), len(eog)])
         context = np.vstack((positions_eeg, positions_eog))
 
+        # Only in ISRUC
+        if x.shape[0] != 6:
+            for i in range(6 - x.shape[0]):
+                x = np.vstack((x, x[[0]]))
+                modality_ids = np.append(modality_ids, modality_ids[0])
+                context = np.vstack((context, context[[0]]))
+
         return (x, modality_ids, context, item["labels"].max())
 
     @staticmethod
