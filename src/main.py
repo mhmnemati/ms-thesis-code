@@ -23,7 +23,8 @@ data_sets = [
     "chb_mit_window_5",
     "chb_mit_window_15",
     "chb_mit_window_30",
-    "sleep_edfx_window_30_overlap_0"
+    "isruc_window_30_overlap_0",
+    "sleep_edfx_window_30_overlap_0",
 ]
 
 parser = argparse.ArgumentParser(description="Train model on data.")

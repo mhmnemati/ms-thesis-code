@@ -130,7 +130,7 @@ class BIOTEncoder(nn.Module):
 
         self.patch_frequency_embedding = PatchFrequencyEmbedding(emb_size, n_freq=self.n_fft // 2 + 1)
         self.positional_encoding = PositionalEncoding(emb_size)
-        self.context_embedding = ContextEmbedding(emb_size, num_modalities=n_modalities, context_dim=3)
+        self.context_embedding = ContextEmbedding(emb_size, num_modalities=2, context_dim=3)
         self.transformer = LinearAttentionTransformer(
             dim=emb_size,
             heads=heads,
@@ -159,7 +159,7 @@ class BIOTEncoder(nn.Module):
     def forward(self, x, modality_ids=None, context=None, perturb=False):
         """
         x: [batch_size, channel, ts]
-        modality_ids: [channel], an array that indicates the modality of each channel
+        modality_ids: [batch_size, channel], an array that indicates the modality of each channel
         output: [batch_size, emb_size]
         """
         emb_seq = []
@@ -175,7 +175,7 @@ class BIOTEncoder(nn.Module):
             batch_size, ts, _ = channel_spec_emb.shape
 
             # Unified Context Embedding
-            channel_emb = self.context_embedding(modality_ids[i].unsqueeze(0), context[i].unsqueeze(0))
+            channel_emb = self.context_embedding(modality_ids[:, i], context[:, i])
 
             # Expand the channel embedding across the sequence length
             channel_emb = channel_emb.unsqueeze(1).expand(batch_size, ts, -1)

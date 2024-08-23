@@ -25,14 +25,7 @@ class BIOTRawModel(nn.Module):
             nn.Linear(in_features=256, out_features=n_outputs),
         )
 
-    def forward(self, x):
-        modality_ids = pt.tensor([0, 0, 1], device=x.device)
-        context = pt.tensor([
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [0.0, 0.0, 0.0]
-        ], device=x.device)
-
+    def forward(self, x, modality_ids, context):
         x = self.encoder(x, modality_ids, context)
         x = self.classifier(x)
         return x
@@ -67,7 +60,20 @@ class BIOTRaw(BaseModel):
         eeg = item["data"][eeg_ch_indexes]
         eog = item["data"][eog_ch_indexes]
 
-        return (np.vstack((eeg, eog)), item["labels"].max())
+        sources_eeg = item["sources"][eeg_ch_indexes]
+        targets_eeg = item["targets"][eeg_ch_indexes]
+
+        sources_eog = item["sources"][eog_ch_indexes]
+        targets_eog = item["targets"][eog_ch_indexes]
+
+        positions_eeg = (sources_eeg + targets_eeg) / 2
+        positions_eog = (sources_eog + targets_eog) / 2
+
+        x = np.vstack((eeg, eog))
+        modality_ids = np.repeat([0, 1], [len(eeg), len(eog)])
+        context = np.vstack((positions_eeg, positions_eog))
+
+        return (x, modality_ids, context, item["labels"].max())
 
     @staticmethod
     def add_arguments(parent_parser):
